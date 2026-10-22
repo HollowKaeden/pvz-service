@@ -1,0 +1,55 @@
+# golangci-lint v2. Версия в CI закреплена в .github/workflows/ci.yml.
+version: "2"
+
+linters:
+  # standard: errcheck, govet, ineffassign, staticcheck, unused.
+  default: standard
+  enable:
+    - bodyclose # не закрытое тело HTTP-ответа
+    - contextcheck # функция с I/O теряет входящий context
+    - copyloopvar
+    - errorlint # сравнение ошибок без errors.Is/As, %v вместо %w
+    - errname # ErrXxx для значений, XxxError для типов
+    - gocritic
+    - gosec
+    - misspell
+    - nilerr # return nil при err != nil
+    - noctx # HTTP-запросы и net без context
+    - nolintlint # //nolint только с указанием линтера и причиной
+    - revive
+    - rowserrcheck # забытый rows.Err()
+    - sloglint # единый стиль slog
+    - sqlclosecheck # не закрытые rows/stmt
+    - unconvert
+    - unparam
+    - usestdlibvars # http.MethodGet вместо "GET" и т.п.
+  settings:
+    nolintlint:
+      require-explanation: true
+      require-specific: true
+    sloglint:
+      # Атрибуты только типизированные (slog.String и т.п.): опечатка в паре
+      # ключ-значение ловится компилятором, а не в логах прода.
+      attr-only: true
+      no-global: all
+      context: scope
+  exclusions:
+    generated: lax
+    presets:
+      - common-false-positives
+      - std-error-handling
+    rules:
+      # В тестах допустимы упрощения, за которые линтеры ругают прод-код.
+      - path: _test\.go
+        linters:
+          - gosec
+          - noctx
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/HollowKaeden/pvz-service

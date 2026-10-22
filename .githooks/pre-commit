@@ -1,0 +1,4 @@
+#!/bin/sh
+# Перед коммитом: формат и линтеры, те же, что в CI.
+# Включается один раз командой make hooks. Пропустить: git commit --no-verify.
+exec golangci-lint run
