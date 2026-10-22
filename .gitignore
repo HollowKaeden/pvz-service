@@ -1,0 +1,51 @@
+# Claude Code
+CLAUDE.md
+.claude/
+
+# Секреты и окружение (.env.example коммитится)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Скомпилированные бинарники
+/pvz
+/bin/
+/dist/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Тестовые бинарники и покрытие (make cover)
+*.test
+*.out
+coverage.txt
+coverage.html
+
+# Go workspace / вендоринг
+go.work
+go.work.sum
+/vendor/
+
+# Локальные данные docker compose
+/data/
+/volumes/
+
+# Логи и временные файлы
+*.log
+*.tmp
+tmp/
+
+# IDE / редакторы
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+*~
+
+# ОС
+.DS_Store
+Thumbs.db
+desktop.ini
