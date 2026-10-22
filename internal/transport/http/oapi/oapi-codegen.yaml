@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/oapi-codegen/oapi-codegen/v2.8.0/configuration-schema.json
+# Кодогенерация HTTP-слоя из api/openapi.yaml: DTO, роутинг на net/http и
+# strict-интерфейс ручек. Запуск: make generate.
+package: oapi
+generate:
+  models: true
+  std-http-server: true
+  strict-server: true
+output: oapi.gen.go
+output-options:
+  # PvzID, GetPVZ вместо PvzId, GetPvz: как принято в Go.
+  name-normalizer: ToCamelCaseWithInitialisms
+  additional-initialisms: [PVZ]
+  overlay:
+    path: overlay.yaml

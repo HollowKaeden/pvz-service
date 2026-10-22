@@ -1,0 +1,31 @@
+# Правки контракта только для кодогенерации (OpenAPI Overlay): сам
+# api/openapi.yaml не меняется, JSON-имена и значения enum'ов остаются как есть.
+overlay: 1.0.0
+info:
+  title: Go-имена для кодогенерации pvz
+  version: 1.0.0
+actions:
+  # Без этого константы получают имена из значений: Москва, ProductTypeЭлектроника.
+  - target: $.components.schemas.PVZ.properties.city
+    update:
+      x-enum-varnames: [CityMoscow, CitySaintPetersburg, CityKazan]
+  - target: $.components.schemas.Product.properties.type
+    update:
+      x-enum-varnames: [ProductTypeElectronics, ProductTypeClothes, ProductTypeShoes]
+  - target: $.components.schemas.Reception.properties.status
+    update:
+      x-enum-varnames: [ReceptionStatusInProgress, ReceptionStatusClose]
+  - target: $.components.schemas.User.properties.role
+    update:
+      x-enum-varnames: [UserRoleEmployee, UserRoleModerator]
+  # В телах запросов те же enum'ы описаны inline, и генератор делает для них
+  # отдельные типы-дубли. Переиспользуем типы из components.
+  - target: $.paths['/products'].post.requestBody.content['application/json'].schema.properties.type
+    update:
+      x-go-type: ProductType
+  - target: $.paths['/dummyLogin'].post.requestBody.content['application/json'].schema.properties.role
+    update:
+      x-go-type: UserRole
+  - target: $.paths['/register'].post.requestBody.content['application/json'].schema.properties.role
+    update:
+      x-go-type: UserRole
