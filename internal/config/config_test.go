@@ -10,7 +10,10 @@ import (
 )
 
 func TestLoad(t *testing.T) {
-	const dbURL = "postgres://pvz:pvz@localhost:5432/pvz"
+	const (
+		dbURL  = "postgres://pvz:pvz@localhost:5432/pvz"
+		secret = "0123456789abcdef0123456789abcdef"
+	)
 
 	tests := []struct {
 		name    string
@@ -20,8 +23,14 @@ func TestLoad(t *testing.T) {
 	}{
 		{
 			name: "значения по умолчанию",
-			env:  map[string]string{"DATABASE_URL": dbURL},
-			want: Config{HTTPAddr: ":8080", LogLevel: slog.LevelInfo, DatabaseURL: dbURL, DBMaxConns: 10},
+			env:  map[string]string{"DATABASE_URL": dbURL, "JWT_SECRET": secret},
+			want: Config{
+				HTTPAddr:    ":8080",
+				LogLevel:    slog.LevelInfo,
+				DatabaseURL: dbURL,
+				DBMaxConns:  10,
+				JWTSecret:   []byte(secret),
+			},
 		},
 		{
 			name: "из окружения",
@@ -31,6 +40,7 @@ func TestLoad(t *testing.T) {
 				"DATABASE_URL":     dbURL,
 				"DB_MAX_CONNS":     "5",
 				"MIGRATE_ON_START": "true",
+				"JWT_SECRET":       secret,
 			},
 			want: Config{
 				HTTPAddr:       "127.0.0.1:9090",
@@ -38,6 +48,7 @@ func TestLoad(t *testing.T) {
 				DatabaseURL:    dbURL,
 				DBMaxConns:     5,
 				MigrateOnStart: true,
+				JWTSecret:      []byte(secret),
 			},
 		},
 		{
@@ -48,17 +59,24 @@ func TestLoad(t *testing.T) {
 				"DB_MAX_CONNS":     "много",
 				"MIGRATE_ON_START": "наверное",
 			},
-			wantErr: []string{"HTTP_ADDR", "LOG_LEVEL", "DATABASE_URL", "DB_MAX_CONNS", "MIGRATE_ON_START"},
+			wantErr: []string{"HTTP_ADDR", "LOG_LEVEL", "DATABASE_URL", "DB_MAX_CONNS", "MIGRATE_ON_START", "JWT_SECRET"},
 		},
 		{
 			name:    "пул не может быть пустым",
-			env:     map[string]string{"DATABASE_URL": dbURL, "DB_MAX_CONNS": "0"},
+			env:     map[string]string{"DATABASE_URL": dbURL, "JWT_SECRET": secret, "DB_MAX_CONNS": "0"},
 			wantErr: []string{"DB_MAX_CONNS"},
+		},
+		{
+			name:    "короткий секрет",
+			env:     map[string]string{"DATABASE_URL": dbURL, "JWT_SECRET": "secret"},
+			wantErr: []string{"JWT_SECRET"},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			for _, key := range []string{"HTTP_ADDR", "LOG_LEVEL", "DATABASE_URL", "DB_MAX_CONNS", "MIGRATE_ON_START"} {
+			for _, key := range []string{
+				"HTTP_ADDR", "LOG_LEVEL", "DATABASE_URL", "DB_MAX_CONNS", "MIGRATE_ON_START", "JWT_SECRET",
+			} {
 				unsetenv(t, key)
 			}
 			for k, v := range tt.env {

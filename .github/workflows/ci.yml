@@ -76,6 +76,8 @@ jobs:
           --health-retries 15
     env:
       DATABASE_URL: postgres://pvz:pvz@localhost:5432/pvz?sslmode=disable
+      # Конфиг требует секрет при любой подкоманде; для миграций он не нужен.
+      JWT_SECRET: ci-only-secret-0123456789abcdef-0123
     steps:
       - uses: actions/checkout@v7
 

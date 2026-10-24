@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 
+	"github.com/HollowKaeden/pvz-service/internal/domain"
 	"github.com/HollowKaeden/pvz-service/internal/transport/http/oapi"
 )
 
@@ -22,6 +23,10 @@ func badRequest(w http.ResponseWriter, _ *http.Request, err error) {
 // где ошибки превращаются в коды ответа.
 func handlerError(log *slog.Logger) func(http.ResponseWriter, *http.Request, error) {
 	return func(w http.ResponseWriter, r *http.Request, err error) {
+		if status, ok := domainStatus(err); ok {
+			writeError(w, status, err.Error())
+			return
+		}
 		if errors.Is(err, errNotImplemented) {
 			writeError(w, http.StatusNotImplemented, "ручка ещё не реализована")
 			return
@@ -37,9 +42,22 @@ func handlerError(log *slog.Logger) func(http.ResponseWriter, *http.Request, err
 	}
 }
 
+// domainStatus возвращает HTTP-код для ошибки бизнес-правила. Только такие
+// ошибки показываются клиенту с исходным текстом.
+func domainStatus(err error) (int, bool) {
+	switch {
+	case errors.Is(err, domain.ErrInvalidRole):
+		return http.StatusBadRequest, true
+	default:
+		return 0, false
+	}
+}
+
 // writeError пишет ошибку в формате контракта: {"message": "..."}.
 func writeError(w http.ResponseWriter, status int, msg string) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(oapi.Error{Message: msg})
+	enc := json.NewEncoder(w)
+	enc.SetEscapeHTML(false) // это API, а не HTML: угловые скобки в тексте оставляем как есть
+	_ = enc.Encode(oapi.Error{Message: msg})
 }

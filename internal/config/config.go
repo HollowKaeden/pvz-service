@@ -1,8 +1,9 @@
 // Package config читает настройки сервиса из переменных окружения.
 //
 // Без переменных сервис работает с локальными значениями по умолчанию; всё, что
-// отличается в проде, задаётся через env. Исключение — DATABASE_URL: строк
-// подключения в коде нет, поэтому её нужно задать всегда (см. .env.example).
+// отличается в проде, задаётся через env. Исключения — DATABASE_URL и
+// JWT_SECRET: строк подключения и секретов в коде нет, поэтому их нужно задать
+// всегда (см. .env.example).
 package config
 
 import (
@@ -27,7 +28,13 @@ type Config struct {
 	DBMaxConns int32
 	// MigrateOnStart — применять миграции при запуске serve (MIGRATE_ON_START).
 	MigrateOnStart bool
+
+	// JWTSecret — ключ подписи токенов (JWT_SECRET), обязательный.
+	JWTSecret []byte
 }
+
+// minJWTSecretLen — для HS256 ключ должен быть не короче самой подписи, 256 бит.
+const minJWTSecretLen = 32
 
 // Load собирает Config из окружения и возвращает все ошибки разом, чтобы
 // неправильный конфиг чинился за один перезапуск.
@@ -35,6 +42,7 @@ func Load() (Config, error) {
 	cfg := Config{
 		HTTPAddr:    envOr("HTTP_ADDR", ":8080"),
 		DatabaseURL: os.Getenv("DATABASE_URL"),
+		JWTSecret:   []byte(os.Getenv("JWT_SECRET")),
 	}
 
 	var errs []error
@@ -46,6 +54,9 @@ func Load() (Config, error) {
 	}
 	if cfg.DatabaseURL == "" {
 		errs = append(errs, errors.New("DATABASE_URL: не задана"))
+	}
+	if len(cfg.JWTSecret) < minJWTSecretLen {
+		errs = append(errs, fmt.Errorf("JWT_SECRET: нужно не меньше %d байт, сейчас %d", minJWTSecretLen, len(cfg.JWTSecret)))
 	}
 
 	// pgxpool хранит размер пула в int32, поэтому разбираем сразу в 32 бита.

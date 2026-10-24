@@ -21,14 +21,20 @@ import (
 
 	"golang.org/x/sync/errgroup"
 
+	"github.com/HollowKaeden/pvz-service/internal/auth"
 	"github.com/HollowKaeden/pvz-service/internal/config"
 	"github.com/HollowKaeden/pvz-service/internal/repository/postgres"
+	"github.com/HollowKaeden/pvz-service/internal/service"
 	httptransport "github.com/HollowKaeden/pvz-service/internal/transport/http"
 )
 
-// shutdownTimeout — сколько ждать начатые запросы при остановке. docker stop
-// присылает SIGKILL через 10 с, поэтому остановка должна уложиться раньше.
-const shutdownTimeout = 8 * time.Second
+const (
+	// shutdownTimeout — сколько ждать начатые запросы при остановке. docker stop
+	// присылает SIGKILL через 10 с, поэтому остановка должна уложиться раньше.
+	shutdownTimeout = 8 * time.Second
+	// tokenTTL — срок жизни выданного токена.
+	tokenTTL = 24 * time.Hour
+)
 
 func main() {
 	// Уровень логов известен только после чтения конфига, а ошибку конфига тоже
@@ -106,8 +112,15 @@ func serve(ctx context.Context, cfg config.Config, log *slog.Logger) error {
 		}
 	}
 
+	tokens := auth.NewTokens(cfg.JWTSecret, tokenTTL)
+	router := httptransport.NewRouter(log, httptransport.Deps{
+		DB:     pool,
+		Tokens: tokens,
+		Auth:   service.NewAuth(tokens),
+	})
+
 	httpSrv := &http.Server{
-		Handler:           httptransport.NewRouter(log, pool),
+		Handler:           router,
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       10 * time.Second,
 		WriteTimeout:      10 * time.Second,

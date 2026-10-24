@@ -3,21 +3,35 @@ package httptransport
 import (
 	"context"
 
+	"github.com/HollowKaeden/pvz-service/internal/domain"
 	"github.com/HollowKaeden/pvz-service/internal/transport/http/oapi"
 )
+
+// AuthService — вход в систему.
+type AuthService interface {
+	DummyLogin(ctx context.Context, role domain.Role) (string, error)
+}
 
 // API реализует ручки контракта (oapi.StrictServerInterface). Сгенерированный
 // код разбирает запрос в DTO и сериализует ответ, здесь остаётся маппинг
 // DTO ↔ domain и вызов сервисов.
 //
-// Пока все ручки отвечают 501: логика появляется по шагам вместе с сервисами.
-type API struct{}
+// Ручки, логика которых ещё не написана, отвечают 501.
+type API struct {
+	auth AuthService
+}
 
 var _ oapi.StrictServerInterface = API{}
 
 // PostDummyLogin — POST /dummyLogin: тестовый токен для выбранной роли.
-func (API) PostDummyLogin(context.Context, oapi.PostDummyLoginRequestObject) (oapi.PostDummyLoginResponseObject, error) {
-	return nil, errNotImplemented
+func (a API) PostDummyLogin(
+	ctx context.Context, req oapi.PostDummyLoginRequestObject,
+) (oapi.PostDummyLoginResponseObject, error) {
+	token, err := a.auth.DummyLogin(ctx, domain.Role(req.Body.Role))
+	if err != nil {
+		return nil, err
+	}
+	return oapi.PostDummyLogin200JSONResponse(token), nil
 }
 
 // PostRegister — POST /register: регистрация по email и паролю.

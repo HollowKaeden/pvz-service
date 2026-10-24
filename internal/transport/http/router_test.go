@@ -11,11 +11,15 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/HollowKaeden/pvz-service/api"
+	"github.com/HollowKaeden/pvz-service/internal/auth"
+	"github.com/HollowKaeden/pvz-service/internal/domain"
+	"github.com/HollowKaeden/pvz-service/internal/service"
 )
 
 // fakeDB — Pinger для тестов: возвращает заданную ошибку.
@@ -23,8 +27,27 @@ type fakeDB struct{ err error }
 
 func (f fakeDB) Ping(context.Context) error { return f.err }
 
+// testTokens — настоящие JWT с тестовым секретом: роутер проверяется вместе
+// с выдачей и проверкой токенов.
+var testTokens = auth.NewTokens([]byte("test-secret-0123456789abcdef-0123"), time.Hour)
+
+func newRouterWithDB(db Pinger) http.Handler {
+	return NewRouter(slog.New(slog.DiscardHandler), Deps{
+		DB:     db,
+		Tokens: testTokens,
+		Auth:   service.NewAuth(testTokens),
+	})
+}
+
 func newTestRouter() http.Handler {
-	return NewRouter(slog.New(slog.DiscardHandler), fakeDB{})
+	return newRouterWithDB(fakeDB{})
+}
+
+func tokenFor(t *testing.T, role domain.Role) string {
+	t.Helper()
+	token, err := testTokens.Issue(role)
+	require.NoError(t, err)
+	return token
 }
 
 func TestHealth(t *testing.T) {
@@ -47,8 +70,8 @@ func TestHealth(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := NewRouter(slog.New(slog.DiscardHandler), tt.db)
-			rec := serve(h, tt.method, "/health", "")
+			h := newRouterWithDB(tt.db)
+			rec := serve(h, tt.method, "/health", "", "")
 
 			assert.Equal(t, tt.wantStatus, rec.Code)
 			if tt.wantBody != "" {
@@ -59,28 +82,29 @@ func TestHealth(t *testing.T) {
 	}
 }
 
-// Все ручки контракта зарегистрированы и до реализации отвечают 501 с телом
-// ошибки из контракта.
+// Ручки, логика которых ещё не написана, отвечают 501 с телом ошибки из
+// контракта, если у клиента подходящая роль.
 func TestContractRoutesNotImplemented(t *testing.T) {
 	h := newTestRouter()
 	const pvzID = "6f1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d"
+	employee, moderator := tokenFor(t, domain.RoleEmployee), tokenFor(t, domain.RoleModerator)
 
 	tests := []struct {
-		method, path, body string
+		method, path, body, token string
 	}{
-		{http.MethodPost, "/dummyLogin", `{"role":"employee"}`},
-		{http.MethodPost, "/register", `{"email":"a@b.ru","password":"p","role":"employee"}`},
-		{http.MethodPost, "/login", `{"email":"a@b.ru","password":"p"}`},
-		{http.MethodPost, "/pvz", `{"city":"Москва"}`},
-		{http.MethodGet, "/pvz?page=1&limit=10", ""},
-		{http.MethodPost, "/receptions", `{"pvzId":"` + pvzID + `"}`},
-		{http.MethodPost, "/pvz/" + pvzID + "/close_last_reception", ""},
-		{http.MethodPost, "/products", `{"type":"обувь","pvzId":"` + pvzID + `"}`},
-		{http.MethodPost, "/pvz/" + pvzID + "/delete_last_product", ""},
+		{http.MethodPost, "/register", `{"email":"a@b.ru","password":"p","role":"employee"}`, ""},
+		{http.MethodPost, "/login", `{"email":"a@b.ru","password":"p"}`, ""},
+		{http.MethodPost, "/pvz", `{"city":"Москва"}`, moderator},
+		{http.MethodGet, "/pvz?page=1&limit=10", "", employee},
+		{http.MethodGet, "/pvz", "", moderator},
+		{http.MethodPost, "/receptions", `{"pvzId":"` + pvzID + `"}`, employee},
+		{http.MethodPost, "/pvz/" + pvzID + "/close_last_reception", "", employee},
+		{http.MethodPost, "/products", `{"type":"обувь","pvzId":"` + pvzID + `"}`, employee},
+		{http.MethodPost, "/pvz/" + pvzID + "/delete_last_product", "", employee},
 	}
 	for _, tt := range tests {
 		t.Run(tt.method+" "+tt.path, func(t *testing.T) {
-			rec := serve(h, tt.method, tt.path, tt.body)
+			rec := serve(h, tt.method, tt.path, tt.body, tt.token)
 
 			assert.Equal(t, http.StatusNotImplemented, rec.Code)
 			assertErrorBody(t, rec)
@@ -88,22 +112,60 @@ func TestContractRoutesNotImplemented(t *testing.T) {
 	}
 }
 
-// Запрос, который не разбирается по контракту, получает 400 до вызова ручки.
-func TestBadRequest(t *testing.T) {
+// Токен из /dummyLogin пускает в ручки своей роли и не пускает в чужие.
+func TestDummyLogin(t *testing.T) {
 	h := newTestRouter()
 
+	t.Run("токен модератора", func(t *testing.T) {
+		rec := serve(h, http.MethodPost, "/dummyLogin", `{"role":"moderator"}`, "")
+		require.Equal(t, http.StatusOK, rec.Code)
+		assert.Equal(t, "application/json", rec.Header().Get("Content-Type"))
+
+		var token string // по контракту Token — JSON-строка
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &token))
+		require.NotEmpty(t, token)
+
+		// Создавать ПВЗ модератору можно (ручка пока 501), принимать товары нельзя.
+		assert.Equal(t, http.StatusNotImplemented, serve(h, http.MethodPost, "/pvz", `{"city":"Москва"}`, token).Code)
+		assert.Equal(t, http.StatusForbidden,
+			serve(h, http.MethodPost, "/receptions", `{"pvzId":"6f1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d"}`, token).Code)
+	})
+
 	tests := []struct {
-		name, method, path, body string
+		name, body string
 	}{
-		{"невалидный JSON", http.MethodPost, "/pvz", `{"city":`},
-		{"UUID в пути", http.MethodPost, "/pvz/not-a-uuid/close_last_reception", ""},
-		{"UUID в теле", http.MethodPost, "/receptions", `{"pvzId":"42"}`},
-		{"число в query", http.MethodGet, "/pvz?page=first", ""},
-		{"дата в query", http.MethodGet, "/pvz?startDate=вчера", ""},
+		{"роль из текста задания", `{"role":"client"}`},
+		{"роль не указана", `{}`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rec := serve(h, tt.method, tt.path, tt.body)
+			rec := serve(h, http.MethodPost, "/dummyLogin", tt.body, "")
+
+			assert.Equal(t, http.StatusBadRequest, rec.Code)
+			assertErrorBody(t, rec)
+			assert.Contains(t, rec.Body.String(), "недопустимая роль")
+		})
+	}
+}
+
+// Запрос, который не разбирается по контракту, получает 400 до вызова ручки.
+func TestBadRequest(t *testing.T) {
+	h := newTestRouter()
+	employee, moderator := tokenFor(t, domain.RoleEmployee), tokenFor(t, domain.RoleModerator)
+
+	tests := []struct {
+		name, method, path, body, token string
+	}{
+		{"невалидный JSON", http.MethodPost, "/pvz", `{"city":`, moderator},
+		{"UUID в пути", http.MethodPost, "/pvz/not-a-uuid/close_last_reception", "", employee},
+		{"UUID в теле", http.MethodPost, "/receptions", `{"pvzId":"42"}`, employee},
+		{"число в query", http.MethodGet, "/pvz?page=first", "", employee},
+		{"дата в query", http.MethodGet, "/pvz?startDate=вчера", "", moderator},
+		{"невалидный JSON в открытой ручке", http.MethodPost, "/dummyLogin", `{"role":`, ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			rec := serve(h, tt.method, tt.path, tt.body, tt.token)
 
 			assert.Equal(t, http.StatusBadRequest, rec.Code)
 			assertErrorBody(t, rec)
@@ -115,34 +177,35 @@ func TestDocs(t *testing.T) {
 	h := newTestRouter()
 
 	t.Run("корень ведёт в Swagger UI", func(t *testing.T) {
-		rec := serve(h, http.MethodGet, "/", "")
+		rec := serve(h, http.MethodGet, "/", "", "")
 		assert.Equal(t, http.StatusFound, rec.Code)
 		assert.Equal(t, "/docs/", rec.Header().Get("Location"))
 	})
 	t.Run("страница Swagger UI", func(t *testing.T) {
-		rec := serve(h, http.MethodGet, "/docs/", "")
+		rec := serve(h, http.MethodGet, "/docs/", "", "")
 		assert.Equal(t, http.StatusOK, rec.Code)
 		assert.Contains(t, rec.Header().Get("Content-Type"), "text/html")
 		assert.Contains(t, rec.Body.String(), `url: "openapi.yaml"`)
 	})
 	t.Run("/docs без слеша", func(t *testing.T) {
-		rec := serve(h, http.MethodGet, "/docs", "")
+		rec := serve(h, http.MethodGet, "/docs", "", "")
 		// Редирект делает сам ServeMux; код зависит от версии Go (301 или 307).
 		assert.Contains(t, []int{http.StatusMovedPermanently, http.StatusTemporaryRedirect}, rec.Code)
 		assert.Equal(t, "/docs/", rec.Header().Get("Location"))
 	})
 	t.Run("спека отдаётся без изменений", func(t *testing.T) {
-		rec := serve(h, http.MethodGet, "/docs/openapi.yaml", "")
+		rec := serve(h, http.MethodGet, "/docs/openapi.yaml", "", "")
 		assert.Equal(t, http.StatusOK, rec.Code)
 		assert.Equal(t, api.OpenAPI, rec.Body.Bytes())
 	})
 	t.Run("лишние пути под /docs/ не отдаются", func(t *testing.T) {
-		rec := serve(h, http.MethodGet, "/docs/whatever", "")
+		rec := serve(h, http.MethodGet, "/docs/whatever", "", "")
 		assert.Equal(t, http.StatusNotFound, rec.Code)
 	})
 }
 
-func serve(h http.Handler, method, path, body string) *httptest.ResponseRecorder {
+// serve выполняет запрос; token, если не пустой, уходит в Authorization.
+func serve(h http.Handler, method, path, body, token string) *httptest.ResponseRecorder {
 	var r io.Reader
 	if body != "" {
 		r = strings.NewReader(body)
@@ -150,6 +213,9 @@ func serve(h http.Handler, method, path, body string) *httptest.ResponseRecorder
 	req := httptest.NewRequest(method, path, r)
 	if body != "" {
 		req.Header.Set("Content-Type", "application/json")
+	}
+	if token != "" {
+		req.Header.Set("Authorization", "Bearer "+token)
 	}
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, req)
