@@ -3,12 +3,13 @@ package httptransport
 import (
 	"log/slog"
 	"net/http"
+	"net/netip"
 	"time"
 )
 
 // logRequests пишет по строке JSON-лога на каждый запрос: метод, путь, статус,
-// размер ответа и время обработки.
-func logRequests(log *slog.Logger, next http.Handler) http.Handler {
+// размер ответа, время обработки и IP клиента (с учётом доверенных прокси).
+func logRequests(log *slog.Logger, trustedProxies []netip.Prefix, next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		start := time.Now()
 		rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
@@ -21,7 +22,7 @@ func logRequests(log *slog.Logger, next http.Handler) http.Handler {
 			slog.Int("status", rec.status),
 			slog.Int("bytes", rec.bytes),
 			slog.Float64("duration_ms", float64(time.Since(start).Microseconds())/1000),
-			slog.String("remote_addr", r.RemoteAddr),
+			slog.String("client_ip", clientIP(r, trustedProxies)),
 		)
 	})
 }

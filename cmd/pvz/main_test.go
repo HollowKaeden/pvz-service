@@ -6,11 +6,14 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
+	"github.com/HollowKaeden/pvz-service/internal/config"
 )
 
 // Начатый запрос дорабатывает после сигнала остановки, новые соединения
@@ -76,6 +79,44 @@ func TestRunHTTPGracefulShutdown(t *testing.T) {
 	case <-time.After(shutdownTimeout):
 		t.Fatal("runHTTP не завершился")
 	}
+}
+
+func TestLocalAddr(t *testing.T) {
+	tests := map[string]string{
+		":8080":          "127.0.0.1:8080",
+		"0.0.0.0:8080":   "127.0.0.1:8080",
+		"[::]:8080":      "127.0.0.1:8080",
+		"127.0.0.1:9090": "127.0.0.1:9090",
+		"pvz:8080":       "pvz:8080",
+		"bad":            "bad",
+	}
+	for listen, want := range tests {
+		assert.Equal(t, want, localAddr(listen), listen)
+	}
+}
+
+func TestHealthcheck(t *testing.T) {
+	ln, err := new(net.ListenConfig).Listen(t.Context(), "tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	var status atomic.Int32
+	status.Store(http.StatusOK)
+	srv := &http.Server{
+		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			assert.Equal(t, "/health", r.URL.Path)
+			w.WriteHeader(int(status.Load()))
+		}),
+		ReadHeaderTimeout: time.Second,
+	}
+	go func() { _ = srv.Serve(ln) }()
+	cfg := config.Config{HTTPAddr: ln.Addr().String()}
+
+	require.NoError(t, healthcheck(t.Context(), cfg, nil))
+
+	status.Store(http.StatusServiceUnavailable)
+	require.ErrorContains(t, healthcheck(t.Context(), cfg, nil), "ответил 503")
+
+	require.NoError(t, srv.Close())
+	assert.Error(t, healthcheck(t.Context(), cfg, nil), "сервис не запущен")
 }
 
 func TestRunUnknownCommand(t *testing.T) {

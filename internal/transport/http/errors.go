@@ -15,7 +15,12 @@ var errNotImplemented = errors.New("not implemented")
 
 // badRequest отвечает 400, когда запрос не разобрался: невалидный JSON,
 // UUID в пути, параметр query. Вызывается сгенерированным кодом до ручки.
+// Слишком большое тело — 413.
 func badRequest(w http.ResponseWriter, _ *http.Request, err error) {
+	if _, ok := errors.AsType[*http.MaxBytesError](err); ok {
+		writeError(w, http.StatusRequestEntityTooLarge, "тело запроса больше 1 МБ")
+		return
+	}
 	writeError(w, http.StatusBadRequest, "неверный запрос: "+err.Error())
 }
 

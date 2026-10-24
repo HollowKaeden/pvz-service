@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"net/netip"
 	"strings"
 	"testing"
 	"time"
@@ -611,7 +612,7 @@ func TestLogRequests(t *testing.T) {
 			log := slog.New(slog.NewJSONHandler(&buf, nil))
 
 			rec := httptest.NewRecorder()
-			logRequests(log, tt.handler).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/pvz?page=2", nil))
+			logRequests(log, nil, tt.handler).ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/pvz?page=2", nil))
 
 			var entry struct {
 				Msg    string `json:"msg"`
@@ -619,6 +620,7 @@ func TestLogRequests(t *testing.T) {
 				Path   string `json:"path"`
 				Status int    `json:"status"`
 				Bytes  int    `json:"bytes"`
+				IP     string `json:"client_ip"`
 				// Указатель: отличает «поля нет» от нулевой длительности.
 				DurationMS *float64 `json:"duration_ms"`
 			}
@@ -628,8 +630,78 @@ func TestLogRequests(t *testing.T) {
 			assert.Equal(t, "/pvz", entry.Path, "query не попадает в лог")
 			assert.Equal(t, tt.wantStatus, entry.Status)
 			assert.Equal(t, tt.wantBytes, entry.Bytes)
+			assert.Equal(t, "192.0.2.1", entry.IP, "адрес, который ставит httptest")
 			assert.NotNil(t, entry.DurationMS)
 			assert.Equal(t, tt.wantStatus, rec.Code, "статус доходит до клиента")
 		})
 	}
+}
+
+func TestClientIP(t *testing.T) {
+	trusted := []netip.Prefix{netip.MustParsePrefix("172.30.0.2/32"), netip.MustParsePrefix("10.0.0.0/8")}
+
+	tests := []struct {
+		name       string
+		remoteAddr string
+		xff        []string // каждый элемент — отдельный заголовок X-Forwarded-For
+		want       string
+	}{
+		{name: "без прокси", remoteAddr: "203.0.113.7:5555", want: "203.0.113.7"},
+		{
+			// Клиент напрямую, без прокси: его заголовку не верим.
+			name:       "заголовок от недоверенного адреса",
+			remoteAddr: "203.0.113.7:5555", xff: []string{"1.2.3.4"},
+			want: "203.0.113.7",
+		},
+		{name: "через Caddy", remoteAddr: "172.30.0.2:40000", xff: []string{"198.51.100.9"}, want: "198.51.100.9"},
+		{
+			// Клиент сам прислал X-Forwarded-For, Caddy дописал настоящий адрес
+			// справа: подделка левее не используется.
+			name:       "подделка слева",
+			remoteAddr: "172.30.0.2:40000", xff: []string{"6.6.6.6, 198.51.100.9"},
+			want: "198.51.100.9",
+		},
+		{
+			name:       "цепочка доверенных прокси",
+			remoteAddr: "172.30.0.2:40000", xff: []string{"198.51.100.9, 10.0.0.5"},
+			want: "198.51.100.9",
+		},
+		{
+			name:       "несколько заголовков",
+			remoteAddr: "172.30.0.2:40000", xff: []string{"6.6.6.6", "198.51.100.9"},
+			want: "198.51.100.9",
+		},
+		{name: "IPv6", remoteAddr: "172.30.0.2:40000", xff: []string{"2001:db8::1"}, want: "2001:db8::1"},
+		{
+			name:       "испорченный заголовок",
+			remoteAddr: "172.30.0.2:40000", xff: []string{"мусор, 198.51.100.9"},
+			want: "198.51.100.9",
+		},
+		{name: "от прокси без заголовка", remoteAddr: "172.30.0.2:40000", want: "172.30.0.2"},
+		{name: "адрес не разбирается", remoteAddr: "pipe", want: "pipe"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			r := httptest.NewRequest(http.MethodGet, "/", nil)
+			r.RemoteAddr = tt.remoteAddr
+			for _, v := range tt.xff {
+				r.Header.Add("X-Forwarded-For", v)
+			}
+
+			assert.Equal(t, tt.want, clientIP(r, trusted))
+		})
+	}
+}
+
+// Тело больше 1 МБ не дочитывается: 413 с ошибкой в формате контракта.
+func TestBodyLimit(t *testing.T) {
+	h := newTestRouter()
+	moderator := tokenFor(t, domain.RoleModerator)
+
+	big := `{"city":"Москва","pad":"` + strings.Repeat("x", maxBodyBytes) + `"}`
+	rec := serve(h, http.MethodPost, "/pvz", big, moderator)
+
+	assert.Equal(t, http.StatusRequestEntityTooLarge, rec.Code)
+	assertErrorBody(t, rec)
+	assert.Contains(t, rec.Body.String(), "тело запроса больше 1 МБ")
 }

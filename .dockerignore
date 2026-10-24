@@ -1,0 +1,11 @@
+.git
+.github
+.githooks
+.env
+.env.*
+bin
+tests
+coverage.*
+*.out
+*.md
+compose.yaml

@@ -2,6 +2,7 @@ package postgres
 
 import (
 	"context"
+	"fmt"
 
 	trmpgx "github.com/avito-tech/go-transaction-manager/drivers/pgxv5/v2"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -20,6 +21,15 @@ type DB struct {
 // менеджером транзакций по умолчанию (trm/v2/manager).
 func NewDB(pool *pgxpool.Pool) *DB {
 	return &DB{pool: pool, getter: trmpgx.DefaultCtxGetter}
+}
+
+// ClearData удаляет все ПВЗ, приёмки и товары. Справочники не трогает. Нужна
+// только для сброса публичного демо (pvz demo-reset).
+func ClearData(ctx context.Context, pool *pgxpool.Pool) error {
+	if _, err := pool.Exec(ctx, `TRUNCATE products, receptions, pvz`); err != nil {
+		return fmt.Errorf("очистка данных: %w", err)
+	}
+	return nil
 }
 
 // conn возвращает текущую транзакцию из ctx или пул.

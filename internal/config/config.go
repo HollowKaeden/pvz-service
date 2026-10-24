@@ -10,8 +10,10 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/netip"
 	"os"
 	"strconv"
+	"strings"
 )
 
 // Config — настройки pvz.
@@ -31,6 +33,11 @@ type Config struct {
 
 	// JWTSecret — ключ подписи токенов (JWT_SECRET), обязательный.
 	JWTSecret []byte
+
+	// TrustedProxies — адреса прокси, которым сервис верит в X-Forwarded-For
+	// (TRUSTED_PROXIES: IP или подсети через запятую). В проде это Caddy.
+	// Пусто по умолчанию: IP клиента берётся из самого соединения.
+	TrustedProxies []netip.Prefix
 }
 
 // minJWTSecretLen — для HS256 ключ должен быть не короче самой подписи, 256 бит.
@@ -75,10 +82,41 @@ func Load() (Config, error) {
 		errs = append(errs, fmt.Errorf("MIGRATE_ON_START: %w", err))
 	}
 
+	cfg.TrustedProxies, err = parsePrefixes(os.Getenv("TRUSTED_PROXIES"))
+	if err != nil {
+		errs = append(errs, fmt.Errorf("TRUSTED_PROXIES: %w", err))
+	}
+
 	if err := errors.Join(errs...); err != nil {
 		return Config{}, fmt.Errorf("конфиг: %w", err)
 	}
 	return cfg, nil
+}
+
+// parsePrefixes разбирает список IP и подсетей через запятую. Отдельный IP
+// превращается в подсеть из одного адреса.
+func parsePrefixes(s string) ([]netip.Prefix, error) {
+	var prefixes []netip.Prefix
+	for item := range strings.SplitSeq(s, ",") {
+		item = strings.TrimSpace(item)
+		if item == "" {
+			continue
+		}
+		if strings.Contains(item, "/") {
+			p, err := netip.ParsePrefix(item)
+			if err != nil {
+				return nil, err
+			}
+			prefixes = append(prefixes, p.Masked())
+			continue
+		}
+		addr, err := netip.ParseAddr(item)
+		if err != nil {
+			return nil, err
+		}
+		prefixes = append(prefixes, netip.PrefixFrom(addr, addr.BitLen()))
+	}
+	return prefixes, nil
 }
 
 // envOr возвращает значение переменной или def, если переменная не задана.

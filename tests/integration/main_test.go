@@ -28,6 +28,7 @@ import (
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 
 	"github.com/HollowKaeden/pvz-service/internal/auth"
+	"github.com/HollowKaeden/pvz-service/internal/demo"
 	"github.com/HollowKaeden/pvz-service/internal/domain"
 	"github.com/HollowKaeden/pvz-service/internal/repository/postgres"
 	"github.com/HollowKaeden/pvz-service/internal/service"
@@ -37,8 +38,9 @@ import (
 
 // Общее окружение всех тестов пакета: поднимается один раз в TestMain.
 var (
-	pool    *pgxpool.Pool
-	baseURL string
+	pool     *pgxpool.Pool
+	services demo.Services
+	baseURL  string
 )
 
 func TestMain(m *testing.M) {
@@ -83,47 +85,51 @@ func runTests(m *testing.M) int {
 		return 1
 	}
 
-	handler, err := newHandler(ctx, pool, log)
+	services, err = newServices(ctx, pool)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
-	srv := httptest.NewServer(handler)
+	tokens := auth.NewTokens([]byte("integration-test-secret-0123456789abcdef"), time.Hour)
+	srv := httptest.NewServer(httptransport.NewRouter(log, httptransport.Deps{
+		DB:         pool,
+		Tokens:     tokens,
+		Auth:       service.NewAuth(tokens),
+		PVZ:        services.PVZ,
+		Receptions: services.Receptions,
+		Products:   services.Products,
+	}))
 	defer srv.Close()
 	baseURL = srv.URL
 
 	return m.Run()
 }
 
-// newHandler собирает HTTP-слой так же, как cmd/pvz: настоящие репозитории,
-// менеджер транзакций и сервисы.
-func newHandler(ctx context.Context, pool *pgxpool.Pool, log *slog.Logger) (http.Handler, error) {
+// newServices собирает сервисы так же, как cmd/pvz: настоящие репозитории и
+// менеджер транзакций.
+func newServices(ctx context.Context, pool *pgxpool.Pool) (demo.Services, error) {
 	db := postgres.NewDB(pool)
 	txManager, err := manager.New(trmpgx.NewDefaultFactory(pool))
 	if err != nil {
-		return nil, err
+		return demo.Services{}, err
 	}
 	pvzRepo := postgres.NewPVZRepository(db)
 	receptionRepo := postgres.NewReceptionRepository(db)
 	productRepo := postgres.NewProductRepository(db)
 	pvzService, err := service.NewPVZ(ctx, pvzRepo, postgres.NewCityRepository(db), receptionRepo, productRepo)
 	if err != nil {
-		return nil, err
+		return demo.Services{}, err
 	}
 	productService, err := service.NewProduct(ctx, txManager, pvzRepo, receptionRepo,
 		productRepo, postgres.NewProductTypeRepository(db))
 	if err != nil {
-		return nil, err
+		return demo.Services{}, err
 	}
-	tokens := auth.NewTokens([]byte("integration-test-secret-0123456789abcdef"), time.Hour)
-	return httptransport.NewRouter(log, httptransport.Deps{
-		DB:         pool,
-		Tokens:     tokens,
-		Auth:       service.NewAuth(tokens),
+	return demo.Services{
 		PVZ:        pvzService,
 		Receptions: service.NewReception(txManager, pvzRepo, receptionRepo),
 		Products:   productService,
-	}), nil
+	}, nil
 }
 
 // resetDB очищает таблицы с данными. Справочники не трогает.

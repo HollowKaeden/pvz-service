@@ -2,6 +2,7 @@ package config
 
 import (
 	"log/slog"
+	"net/netip"
 	"os"
 	"testing"
 
@@ -41,6 +42,7 @@ func TestLoad(t *testing.T) {
 				"DB_MAX_CONNS":     "5",
 				"MIGRATE_ON_START": "true",
 				"JWT_SECRET":       secret,
+				"TRUSTED_PROXIES":  "172.30.0.2, 10.1.2.3/8,::1",
 			},
 			want: Config{
 				HTTPAddr:       "127.0.0.1:9090",
@@ -49,6 +51,11 @@ func TestLoad(t *testing.T) {
 				DBMaxConns:     5,
 				MigrateOnStart: true,
 				JWTSecret:      []byte(secret),
+				TrustedProxies: []netip.Prefix{
+					netip.MustParsePrefix("172.30.0.2/32"),
+					netip.MustParsePrefix("10.0.0.0/8"),
+					netip.MustParsePrefix("::1/128"),
+				},
 			},
 		},
 		{
@@ -58,8 +65,11 @@ func TestLoad(t *testing.T) {
 				"LOG_LEVEL":        "verbose",
 				"DB_MAX_CONNS":     "много",
 				"MIGRATE_ON_START": "наверное",
+				"TRUSTED_PROXIES":  "caddy",
 			},
-			wantErr: []string{"HTTP_ADDR", "LOG_LEVEL", "DATABASE_URL", "DB_MAX_CONNS", "MIGRATE_ON_START", "JWT_SECRET"},
+			wantErr: []string{
+				"HTTP_ADDR", "LOG_LEVEL", "DATABASE_URL", "DB_MAX_CONNS", "MIGRATE_ON_START", "JWT_SECRET", "TRUSTED_PROXIES",
+			},
 		},
 		{
 			name:    "пул не может быть пустым",
@@ -75,7 +85,7 @@ func TestLoad(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			for _, key := range []string{
-				"HTTP_ADDR", "LOG_LEVEL", "DATABASE_URL", "DB_MAX_CONNS", "MIGRATE_ON_START", "JWT_SECRET",
+				"HTTP_ADDR", "LOG_LEVEL", "DATABASE_URL", "DB_MAX_CONNS", "MIGRATE_ON_START", "JWT_SECRET", "TRUSTED_PROXIES",
 			} {
 				unsetenv(t, key)
 			}

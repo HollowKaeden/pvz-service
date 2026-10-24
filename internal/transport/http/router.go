@@ -5,12 +5,20 @@ package httptransport
 import (
 	"log/slog"
 	"net/http"
+	"net/netip"
 
 	"github.com/HollowKaeden/pvz-service/internal/transport/http/oapi"
 )
 
+// maxBodyBytes — наибольший размер тела запроса. Самое большое тело в API —
+// пара полей JSON, так что 1 МБ с большим запасом.
+const maxBodyBytes = 1 << 20
+
 // Deps — зависимости HTTP-слоя.
 type Deps struct {
+	// TrustedProxies — прокси, которым можно верить в X-Forwarded-For.
+	TrustedProxies []netip.Prefix
+
 	DB         Pinger
 	Tokens     TokenParser
 	Auth       AuthService
@@ -40,5 +48,14 @@ func NewRouter(log *slog.Logger, deps Deps) http.Handler {
 		Middlewares:      []oapi.MiddlewareFunc{authorize(deps.Tokens, routeAccess())},
 	})
 
-	return logRequests(log, mux)
+	return logRequests(log, deps.TrustedProxies, limitBody(mux))
+}
+
+// limitBody ограничивает тело запроса maxBodyBytes: чтение сверх лимита
+// возвращает ошибку, и сервис отвечает 413, не дочитывая тело.
+func limitBody(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
+		next.ServeHTTP(w, r)
+	})
 }
