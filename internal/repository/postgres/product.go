@@ -62,6 +62,32 @@ func (r *ProductRepository) DeleteLast(ctx context.Context, receptionID uuid.UUI
 	return nil
 }
 
+// ListByReceptions возвращает товары этих приёмок в порядке добавления.
+func (r *ProductRepository) ListByReceptions(ctx context.Context, receptionIDs []uuid.UUID) ([]domain.Product, error) {
+	// Ищется по индексу (reception_id, seq).
+	rows, err := r.db.conn(ctx).Query(ctx, `
+		SELECT p.id, p.reception_id, p.date_time, t.name
+		FROM products p
+		JOIN product_types t ON t.id = p.type_id
+		WHERE p.reception_id = ANY($1)
+		ORDER BY p.reception_id, p.seq`,
+		receptionIDs,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("select products: %w", err)
+	}
+	list, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (domain.Product, error) {
+		var p domain.Product
+		err := row.Scan(&p.ID, &p.ReceptionID, &p.DateTime, &p.Type)
+		p.DateTime = p.DateTime.UTC()
+		return p, err
+	})
+	if err != nil {
+		return nil, fmt.Errorf("select products: %w", err)
+	}
+	return list, nil
+}
+
 // ProductTypeRepository читает справочник типов товаров.
 type ProductTypeRepository struct {
 	db *DB

@@ -18,6 +18,9 @@ type ReceptionRepository interface {
 	// возвращает domain.ErrNoOpenReception.
 	LockOpen(ctx context.Context, pvzID uuid.UUID) (domain.Reception, error)
 	SetStatus(ctx context.Context, id uuid.UUID, status domain.ReceptionStatus) error
+	// ListByPVZ возвращает приёмки этих ПВЗ, новые сверху. Если период задан,
+	// только приёмки из периода.
+	ListByPVZ(ctx context.Context, pvzIDs []uuid.UUID, period domain.Period) ([]domain.Reception, error)
 }
 
 // TxManager выполняет fn в транзакции: коммит, если fn вернула nil, иначе

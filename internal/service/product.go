@@ -19,6 +19,8 @@ type ProductRepository interface {
 	// DeleteLast удаляет последний добавленный товар приёмки. Если товаров
 	// нет, возвращает domain.ErrNoProductsToDelete.
 	DeleteLast(ctx context.Context, receptionID uuid.UUID) error
+	// ListByReceptions возвращает товары этих приёмок в порядке добавления.
+	ListByReceptions(ctx context.Context, receptionIDs []uuid.UUID) ([]domain.Product, error)
 }
 
 // ProductTypeRepository читает справочник типов товаров.

@@ -51,7 +51,8 @@ func domainStatus(err error) (int, bool) {
 		errors.Is(err, domain.ErrReceptionAlreadyOpen),
 		errors.Is(err, domain.ErrNoOpenReception),
 		errors.Is(err, domain.ErrProductTypeNotAllowed),
-		errors.Is(err, domain.ErrNoProductsToDelete):
+		errors.Is(err, domain.ErrNoProductsToDelete),
+		errors.Is(err, domain.ErrInvalidListParams):
 		return http.StatusBadRequest, true
 	// В контракте 404 нет, там такой запрос назван неверным (400). Но ПВЗ из
 	// запроса не существует, и по HTTP это 404: так клиент отличит опечатку в

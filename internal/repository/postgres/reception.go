@@ -79,6 +79,42 @@ func (r *ReceptionRepository) LockOpen(ctx context.Context, pvzID uuid.UUID) (do
 	return rec, nil
 }
 
+// ListByPVZ возвращает приёмки этих ПВЗ, новые сверху. Если период задан,
+// только приёмки из периода.
+func (r *ReceptionRepository) ListByPVZ(
+	ctx context.Context, pvzIDs []uuid.UUID, period domain.Period,
+) ([]domain.Reception, error) {
+	// Ищется по индексу (pvz_id, date_time).
+	q := psql().
+		Select("r.id", "r.pvz_id", "r.date_time", "s.name").
+		From("receptions r").
+		Join("reception_statuses s ON s.id = r.status_id").
+		Where("r.pvz_id = ANY(?)", pvzIDs).
+		OrderBy("r.date_time DESC")
+	if period.IsSet() {
+		q = q.Where(inPeriod("r.date_time", period))
+	}
+	query, args, err := q.ToSql()
+	if err != nil {
+		return nil, fmt.Errorf("select receptions: %w", err)
+	}
+
+	rows, err := r.db.conn(ctx).Query(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("select receptions: %w", err)
+	}
+	list, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (domain.Reception, error) {
+		var rec domain.Reception
+		err := row.Scan(&rec.ID, &rec.PVZID, &rec.DateTime, &rec.Status)
+		rec.DateTime = rec.DateTime.UTC()
+		return rec, err
+	})
+	if err != nil {
+		return nil, fmt.Errorf("select receptions: %w", err)
+	}
+	return list, nil
+}
+
 // SetStatus меняет статус приёмки.
 func (r *ReceptionRepository) SetStatus(ctx context.Context, id uuid.UUID, status domain.ReceptionStatus) error {
 	tag, err := r.db.conn(ctx).Exec(ctx, `

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	sq "github.com/Masterminds/squirrel"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
@@ -63,6 +64,49 @@ func (r *PVZRepository) Exists(ctx context.Context, id uuid.UUID) (bool, error) 
 		return false, fmt.Errorf("pvz exists: %w", err)
 	}
 	return exists, nil
+}
+
+// List возвращает страницу ПВЗ, новые сверху. Если период задан, в список
+// попадают только ПВЗ, у которых есть приёмки в этом периоде.
+func (r *PVZRepository) List(ctx context.Context, period domain.Period, limit, offset int) ([]domain.PVZ, error) {
+	q := psql().
+		Select("p.id", "p.registration_date", "c.name").
+		From("pvz p").
+		Join("cities c ON c.id = p.city_id").
+		// id в конце сортировки делает порядок однозначным, даже если у двух
+		// ПВЗ совпадёт дата регистрации: иначе страницы могли бы пересекаться.
+		OrderBy("p.registration_date DESC", "p.id DESC").
+		Suffix("LIMIT ? OFFSET ?", limit, offset)
+	if period.IsSet() {
+		// Приёмки ПВЗ за период ищутся по индексу (pvz_id, date_time).
+		q = q.Where(sq.Expr("EXISTS (?)", sq.
+			Select("1").
+			From("receptions r").
+			Where("r.pvz_id = p.id").
+			Where(inPeriod("r.date_time", period)),
+		))
+	}
+	query, args, err := q.ToSql()
+	if err != nil {
+		return nil, fmt.Errorf("select pvz: %w", err)
+	}
+
+	rows, err := r.db.conn(ctx).Query(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("select pvz: %w", err)
+	}
+	list, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (domain.PVZ, error) {
+		var p domain.PVZ
+		err := row.Scan(&p.ID, &p.RegistrationDate, &p.City)
+		// pgx отдаёт timestamptz в часовом поясе процесса, а сервис везде
+		// работает в UTC.
+		p.RegistrationDate = p.RegistrationDate.UTC()
+		return p, err
+	})
+	if err != nil {
+		return nil, fmt.Errorf("select pvz: %w", err)
+	}
+	return list, nil
 }
 
 // CityRepository читает справочник городов.

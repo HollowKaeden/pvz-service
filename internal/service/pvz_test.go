@@ -22,7 +22,7 @@ func newTestPVZ(t *testing.T, repo PVZRepository, now time.Time, id uuid.UUID) *
 	cities := newMockCityRepository(t)
 	cities.EXPECT().List(mock.Anything).Return(testCities, nil)
 
-	s, err := NewPVZ(context.Background(), repo, cities)
+	s, err := NewPVZ(context.Background(), repo, cities, newMockReceptionRepository(t), newMockProductRepository(t))
 	require.NoError(t, err)
 	s.now = func() time.Time { return now }
 	s.newID = func() (uuid.UUID, error) { return id, nil }
@@ -91,7 +91,8 @@ func TestNewPVZ(t *testing.T) {
 		cities := newMockCityRepository(t)
 		cities.EXPECT().List(mock.Anything).Return(nil, errDB)
 
-		s, err := NewPVZ(context.Background(), newMockPVZRepository(t), cities)
+		s, err := NewPVZ(context.Background(), newMockPVZRepository(t), cities,
+			newMockReceptionRepository(t), newMockProductRepository(t))
 
 		require.ErrorIs(t, err, errDB)
 		assert.Nil(t, s)

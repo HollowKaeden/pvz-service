@@ -14,10 +14,17 @@ type AuthService interface {
 	DummyLogin(ctx context.Context, role domain.Role) (string, error)
 }
 
-// PVZService — заведение ПВЗ.
+// PVZService — заведение ПВЗ и список ПВЗ.
 type PVZService interface {
 	Create(ctx context.Context, city string) (domain.PVZ, error)
+	List(ctx context.Context, period domain.Period, page, limit int) ([]domain.PVZWithReceptions, error)
 }
+
+// Значения по умолчанию для GET /pvz из контракта.
+const (
+	defaultPage  = 1
+	defaultLimit = 10
+)
 
 // ReceptionService — открытие и закрытие приёмок.
 type ReceptionService interface {
@@ -77,8 +84,28 @@ func (a API) PostPVZ(ctx context.Context, req oapi.PostPVZRequestObject) (oapi.P
 }
 
 // GetPVZ — GET /pvz: ПВЗ с приёмками и товарами, фильтр по дате и пагинация.
-func (API) GetPVZ(context.Context, oapi.GetPVZRequestObject) (oapi.GetPVZResponseObject, error) {
-	return nil, errNotImplemented
+//
+// Проверка значений (диапазон limit, порядок дат) в сервисе: это правила
+// списка, а не формат запроса.
+func (a API) GetPVZ(ctx context.Context, req oapi.GetPVZRequestObject) (oapi.GetPVZResponseObject, error) {
+	page, limit := defaultPage, defaultLimit
+	if req.Params.Page != nil {
+		page = *req.Params.Page
+	}
+	if req.Params.Limit != nil {
+		limit = *req.Params.Limit
+	}
+	period := domain.Period{Start: req.Params.StartDate, End: req.Params.EndDate}
+
+	list, err := a.pvz.List(ctx, period, page, limit)
+	if err != nil {
+		return nil, err
+	}
+	resp := make(oapi.GetPVZ200JSONResponse, len(list))
+	for i, item := range list {
+		resp[i] = toPVZWithReceptions(item)
+	}
+	return resp, nil
 }
 
 // PostReceptions — POST /receptions: открытие приёмки (employee).
@@ -149,4 +176,20 @@ func toProduct(p domain.Product) oapi.Product {
 		ReceptionID: p.ReceptionID,
 		Type:        oapi.ProductType(p.Type),
 	}
+}
+
+// toPVZWithReceptions переводит элемент списка ПВЗ из домена в DTO контракта.
+// Пустые списки приёмок и товаров уходят как [], а не пропадают из ответа.
+func toPVZWithReceptions(item domain.PVZWithReceptions) oapi.PVZWithReceptions {
+	receptions := make([]oapi.ReceptionWithProducts, len(item.Receptions))
+	for i, r := range item.Receptions {
+		products := make([]oapi.Product, len(r.Products))
+		for j, p := range r.Products {
+			products[j] = toProduct(p)
+		}
+		reception := toReception(r.Reception)
+		receptions[i] = oapi.ReceptionWithProducts{Reception: &reception, Products: &products}
+	}
+	pvz := toPVZ(item.PVZ)
+	return oapi.PVZWithReceptions{PVZ: &pvz, Receptions: &receptions}
 }

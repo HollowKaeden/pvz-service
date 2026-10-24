@@ -121,12 +121,13 @@ func serve(ctx context.Context, cfg config.Config, log *slog.Logger) error {
 	}
 	pvzRepo := postgres.NewPVZRepository(db)
 	receptionRepo := postgres.NewReceptionRepository(db)
-	pvzService, err := service.NewPVZ(ctx, pvzRepo, postgres.NewCityRepository(db))
+	productRepo := postgres.NewProductRepository(db)
+	pvzService, err := service.NewPVZ(ctx, pvzRepo, postgres.NewCityRepository(db), receptionRepo, productRepo)
 	if err != nil {
 		return err
 	}
 	productService, err := service.NewProduct(ctx, txManager, pvzRepo, receptionRepo,
-		postgres.NewProductRepository(db), postgres.NewProductTypeRepository(db))
+		productRepo, postgres.NewProductTypeRepository(db))
 	if err != nil {
 		return err
 	}

@@ -29,3 +29,11 @@ actions:
   - target: $.paths['/register'].post.requestBody.content['application/json'].schema.properties.role
     update:
       x-go-type: UserRole
+  # Элементы ответа GET /pvz описаны inline, и генератор делает из них
+  # анонимные структуры. Даём им имена, чтобы их можно было собрать в коде.
+  - target: $.paths['/pvz'].get.responses['200'].content['application/json'].schema.items
+    update:
+      x-go-type-name: PVZWithReceptions
+  - target: $.paths['/pvz'].get.responses['200'].content['application/json'].schema.items.properties.receptions.items
+    update:
+      x-go-type-name: ReceptionWithProducts

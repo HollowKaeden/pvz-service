@@ -178,6 +178,18 @@ type GetPVZParams struct {
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
+// ReceptionWithProducts defines parameters for GetPVZ.
+type ReceptionWithProducts struct {
+	Products  *[]Product `json:"products,omitempty"`
+	Reception *Reception `json:"reception,omitempty"`
+}
+
+// PVZWithReceptions defines parameters for GetPVZ.
+type PVZWithReceptions struct {
+	PVZ        *PVZ                     `json:"pvz,omitempty"`
+	Receptions *[]ReceptionWithProducts `json:"receptions,omitempty"`
+}
+
 // PostReceptionsJSONBody defines parameters for PostReceptions.
 type PostReceptionsJSONBody struct {
 	PVZID openapi_types.UUID `json:"pvzId"`
@@ -719,13 +731,7 @@ type GetPVZResponseObject interface {
 	VisitGetPVZResponse(w http.ResponseWriter) error
 }
 
-type GetPVZ200JSONResponse []struct {
-	PVZ        *PVZ `json:"pvz,omitempty"`
-	Receptions *[]struct {
-		Products  *[]Product `json:"products,omitempty"`
-		Reception *Reception `json:"reception,omitempty"`
-	} `json:"receptions,omitempty"`
-}
+type GetPVZ200JSONResponse []PVZWithReceptions
 
 func (response GetPVZ200JSONResponse) VisitGetPVZResponse(w http.ResponseWriter) error {
 

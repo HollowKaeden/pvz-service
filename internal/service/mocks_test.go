@@ -258,6 +258,74 @@ func (_c *mockProductRepository_DeleteLast_Call) RunAndReturn(run func(ctx conte
 	return _c
 }
 
+// ListByReceptions provides a mock function for the type mockProductRepository
+func (_mock *mockProductRepository) ListByReceptions(ctx context.Context, receptionIDs []uuid.UUID) ([]domain.Product, error) {
+	ret := _mock.Called(ctx, receptionIDs)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListByReceptions")
+	}
+
+	var r0 []domain.Product
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, []uuid.UUID) ([]domain.Product, error)); ok {
+		return returnFunc(ctx, receptionIDs)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, []uuid.UUID) []domain.Product); ok {
+		r0 = returnFunc(ctx, receptionIDs)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]domain.Product)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, []uuid.UUID) error); ok {
+		r1 = returnFunc(ctx, receptionIDs)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// mockProductRepository_ListByReceptions_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListByReceptions'
+type mockProductRepository_ListByReceptions_Call struct {
+	*mock.Call
+}
+
+// ListByReceptions is a helper method to define mock.On call
+//   - ctx context.Context
+//   - receptionIDs []uuid.UUID
+func (_e *mockProductRepository_Expecter) ListByReceptions(ctx any, receptionIDs any) *mockProductRepository_ListByReceptions_Call {
+	return &mockProductRepository_ListByReceptions_Call{Call: _e.mock.On("ListByReceptions", ctx, receptionIDs)}
+}
+
+func (_c *mockProductRepository_ListByReceptions_Call) Run(run func(ctx context.Context, receptionIDs []uuid.UUID)) *mockProductRepository_ListByReceptions_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 []uuid.UUID
+		if args[1] != nil {
+			arg1 = args[1].([]uuid.UUID)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *mockProductRepository_ListByReceptions_Call) Return(products []domain.Product, err error) *mockProductRepository_ListByReceptions_Call {
+	_c.Call.Return(products, err)
+	return _c
+}
+
+func (_c *mockProductRepository_ListByReceptions_Call) RunAndReturn(run func(ctx context.Context, receptionIDs []uuid.UUID) ([]domain.Product, error)) *mockProductRepository_ListByReceptions_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // newMockProductTypeRepository creates a new instance of mockProductTypeRepository. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func newMockProductTypeRepository(t interface {
@@ -515,6 +583,86 @@ func (_c *mockPVZRepository_Exists_Call) RunAndReturn(run func(ctx context.Conte
 	return _c
 }
 
+// List provides a mock function for the type mockPVZRepository
+func (_mock *mockPVZRepository) List(ctx context.Context, period domain.Period, limit int, offset int) ([]domain.PVZ, error) {
+	ret := _mock.Called(ctx, period, limit, offset)
+
+	if len(ret) == 0 {
+		panic("no return value specified for List")
+	}
+
+	var r0 []domain.PVZ
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.Period, int, int) ([]domain.PVZ, error)); ok {
+		return returnFunc(ctx, period, limit, offset)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.Period, int, int) []domain.PVZ); ok {
+		r0 = returnFunc(ctx, period, limit, offset)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]domain.PVZ)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, domain.Period, int, int) error); ok {
+		r1 = returnFunc(ctx, period, limit, offset)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// mockPVZRepository_List_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'List'
+type mockPVZRepository_List_Call struct {
+	*mock.Call
+}
+
+// List is a helper method to define mock.On call
+//   - ctx context.Context
+//   - period domain.Period
+//   - limit int
+//   - offset int
+func (_e *mockPVZRepository_Expecter) List(ctx any, period any, limit any, offset any) *mockPVZRepository_List_Call {
+	return &mockPVZRepository_List_Call{Call: _e.mock.On("List", ctx, period, limit, offset)}
+}
+
+func (_c *mockPVZRepository_List_Call) Run(run func(ctx context.Context, period domain.Period, limit int, offset int)) *mockPVZRepository_List_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 domain.Period
+		if args[1] != nil {
+			arg1 = args[1].(domain.Period)
+		}
+		var arg2 int
+		if args[2] != nil {
+			arg2 = args[2].(int)
+		}
+		var arg3 int
+		if args[3] != nil {
+			arg3 = args[3].(int)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+			arg3,
+		)
+	})
+	return _c
+}
+
+func (_c *mockPVZRepository_List_Call) Return(pVZs []domain.PVZ, err error) *mockPVZRepository_List_Call {
+	_c.Call.Return(pVZs, err)
+	return _c
+}
+
+func (_c *mockPVZRepository_List_Call) RunAndReturn(run func(ctx context.Context, period domain.Period, limit int, offset int) ([]domain.PVZ, error)) *mockPVZRepository_List_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Lock provides a mock function for the type mockPVZRepository
 func (_mock *mockPVZRepository) Lock(ctx context.Context, id uuid.UUID) error {
 	ret := _mock.Called(ctx, id)
@@ -759,6 +907,80 @@ func (_c *mockReceptionRepository_Create_Call) Return(err error) *mockReceptionR
 }
 
 func (_c *mockReceptionRepository_Create_Call) RunAndReturn(run func(ctx context.Context, rec domain.Reception) error) *mockReceptionRepository_Create_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// ListByPVZ provides a mock function for the type mockReceptionRepository
+func (_mock *mockReceptionRepository) ListByPVZ(ctx context.Context, pvzIDs []uuid.UUID, period domain.Period) ([]domain.Reception, error) {
+	ret := _mock.Called(ctx, pvzIDs, period)
+
+	if len(ret) == 0 {
+		panic("no return value specified for ListByPVZ")
+	}
+
+	var r0 []domain.Reception
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, []uuid.UUID, domain.Period) ([]domain.Reception, error)); ok {
+		return returnFunc(ctx, pvzIDs, period)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, []uuid.UUID, domain.Period) []domain.Reception); ok {
+		r0 = returnFunc(ctx, pvzIDs, period)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]domain.Reception)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, []uuid.UUID, domain.Period) error); ok {
+		r1 = returnFunc(ctx, pvzIDs, period)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// mockReceptionRepository_ListByPVZ_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'ListByPVZ'
+type mockReceptionRepository_ListByPVZ_Call struct {
+	*mock.Call
+}
+
+// ListByPVZ is a helper method to define mock.On call
+//   - ctx context.Context
+//   - pvzIDs []uuid.UUID
+//   - period domain.Period
+func (_e *mockReceptionRepository_Expecter) ListByPVZ(ctx any, pvzIDs any, period any) *mockReceptionRepository_ListByPVZ_Call {
+	return &mockReceptionRepository_ListByPVZ_Call{Call: _e.mock.On("ListByPVZ", ctx, pvzIDs, period)}
+}
+
+func (_c *mockReceptionRepository_ListByPVZ_Call) Run(run func(ctx context.Context, pvzIDs []uuid.UUID, period domain.Period)) *mockReceptionRepository_ListByPVZ_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 []uuid.UUID
+		if args[1] != nil {
+			arg1 = args[1].([]uuid.UUID)
+		}
+		var arg2 domain.Period
+		if args[2] != nil {
+			arg2 = args[2].(domain.Period)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *mockReceptionRepository_ListByPVZ_Call) Return(receptions []domain.Reception, err error) *mockReceptionRepository_ListByPVZ_Call {
+	_c.Call.Return(receptions, err)
+	return _c
+}
+
+func (_c *mockReceptionRepository_ListByPVZ_Call) RunAndReturn(run func(ctx context.Context, pvzIDs []uuid.UUID, period domain.Period) ([]domain.Reception, error)) *mockReceptionRepository_ListByPVZ_Call {
 	_c.Call.Return(run)
 	return _c
 }

@@ -54,6 +54,34 @@ func (fakePVZ) Create(_ context.Context, city string) (domain.PVZ, error) {
 	}
 }
 
+// List отдаёт один ПВЗ с одной приёмкой без товаров. Параметры запоминает
+// listSpy в тесте GET /pvz.
+func (fakePVZ) List(context.Context, domain.Period, int, int) ([]domain.PVZWithReceptions, error) {
+	return []domain.PVZWithReceptions{{
+		PVZ: testPVZ,
+		Receptions: []domain.ReceptionWithProducts{{
+			Reception: testReception(testPVZ.ID, domain.ReceptionInProgress),
+			Products:  []domain.Product{},
+		}},
+	}}, nil
+}
+
+// listSpy — PVZService, который запоминает параметры списка.
+type listSpy struct {
+	fakePVZ
+	period      domain.Period
+	page, limit int
+	err         error
+}
+
+func (s *listSpy) List(ctx context.Context, period domain.Period, page, limit int) ([]domain.PVZWithReceptions, error) {
+	s.period, s.page, s.limit = period, page, limit
+	if s.err != nil {
+		return nil, s.err
+	}
+	return s.fakePVZ.List(ctx, period, page, limit)
+}
+
 // fakeReceptions — ReceptionService для тестов HTTP-слоя: ведёт себя по pvzId
 // из констант ниже.
 type fakeReceptions struct{}
@@ -183,22 +211,19 @@ func TestHealth(t *testing.T) {
 }
 
 // Ручки, логика которых ещё не написана, отвечают 501 с телом ошибки из
-// контракта, если у клиента подходящая роль.
+// контракта. Обе открытые, токен не нужен.
 func TestContractRoutesNotImplemented(t *testing.T) {
 	h := newTestRouter()
-	employee, moderator := tokenFor(t, domain.RoleEmployee), tokenFor(t, domain.RoleModerator)
 
 	tests := []struct {
-		method, path, body, token string
+		method, path, body string
 	}{
-		{http.MethodPost, "/register", `{"email":"a@b.ru","password":"p","role":"employee"}`, ""},
-		{http.MethodPost, "/login", `{"email":"a@b.ru","password":"p"}`, ""},
-		{http.MethodGet, "/pvz?page=1&limit=10", "", employee},
-		{http.MethodGet, "/pvz", "", moderator},
+		{http.MethodPost, "/register", `{"email":"a@b.ru","password":"p","role":"employee"}`},
+		{http.MethodPost, "/login", `{"email":"a@b.ru","password":"p"}`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.method+" "+tt.path, func(t *testing.T) {
-			rec := serve(h, tt.method, tt.path, tt.body, tt.token)
+			rec := serve(h, tt.method, tt.path, tt.body, "")
 
 			assert.Equal(t, http.StatusNotImplemented, rec.Code)
 			assertErrorBody(t, rec)
@@ -397,6 +422,71 @@ func TestProducts(t *testing.T) {
 		assert.Equal(t, http.StatusForbidden,
 			serve(h, http.MethodPost, deletePath(pvzWithReception), "", moderator).Code)
 	})
+}
+
+func TestGetPVZ(t *testing.T) {
+	employee, moderator := tokenFor(t, domain.RoleEmployee), tokenFor(t, domain.RoleModerator)
+	newRouter := func(spy *listSpy) http.Handler {
+		return NewRouter(slog.New(slog.DiscardHandler), Deps{DB: fakeDB{}, Tokens: testTokens, PVZ: spy})
+	}
+
+	t.Run("значения по умолчанию из контракта", func(t *testing.T) {
+		spy := &listSpy{}
+		rec := serve(newRouter(spy), http.MethodGet, "/pvz", "", employee)
+
+		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+		assert.Equal(t, 1, spy.page)
+		assert.Equal(t, 10, spy.limit)
+		assert.Equal(t, domain.Period{}, spy.period)
+		// Пустой список товаров уходит как [], а не пропадает из ответа.
+		assert.JSONEq(t, `[{
+			"pvz":{"id":"0192f1a4-7b3c-7d2e-8f00-000000000001","registrationDate":"2026-10-24T12:04:05.123456Z","city":"Москва"},
+			"receptions":[{
+				"reception":{
+					"id":"0192f1a4-7b3c-7d2e-8f00-0000000000a1",
+					"dateTime":"2026-10-24T12:04:05.123456Z",
+					"pvzId":"0192f1a4-7b3c-7d2e-8f00-000000000001",
+					"status":"in_progress"
+				},
+				"products":[]
+			}]
+		}]`, rec.Body.String())
+	})
+	t.Run("параметры доходят до сервиса", func(t *testing.T) {
+		spy := &listSpy{}
+		rec := serve(newRouter(spy), http.MethodGet,
+			"/pvz?page=3&limit=30&startDate=2026-10-01T00:00:00Z&endDate=2026-10-31T23:59:59%2B03:00", "", moderator)
+
+		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+		assert.Equal(t, 3, spy.page)
+		assert.Equal(t, 30, spy.limit)
+		require.NotNil(t, spy.period.Start)
+		require.NotNil(t, spy.period.End)
+		assert.True(t, spy.period.Start.Equal(time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)))
+		assert.True(t, spy.period.End.Equal(time.Date(2026, 10, 31, 20, 59, 59, 0, time.UTC)))
+	})
+	t.Run("пустой список — это []", func(t *testing.T) {
+		h := NewRouter(slog.New(slog.DiscardHandler), Deps{DB: fakeDB{}, Tokens: testTokens, PVZ: emptyList{}})
+		rec := serve(h, http.MethodGet, "/pvz", "", employee)
+
+		require.Equal(t, http.StatusOK, rec.Code)
+		assert.JSONEq(t, `[]`, rec.Body.String())
+	})
+	t.Run("неверные параметры", func(t *testing.T) {
+		spy := &listSpy{err: fmt.Errorf("%w: limit должен быть от 1 до 30", domain.ErrInvalidListParams)}
+		rec := serve(newRouter(spy), http.MethodGet, "/pvz?limit=31", "", employee)
+
+		assert.Equal(t, http.StatusBadRequest, rec.Code)
+		assertErrorBody(t, rec)
+		assert.Contains(t, rec.Body.String(), "limit должен быть от 1 до 30")
+	})
+}
+
+// emptyList — PVZService, у которого список ПВЗ пуст.
+type emptyList struct{ fakePVZ }
+
+func (emptyList) List(context.Context, domain.Period, int, int) ([]domain.PVZWithReceptions, error) {
+	return []domain.PVZWithReceptions{}, nil
 }
 
 // Запрос, который не разбирается по контракту, получает 400 до вызова ручки.

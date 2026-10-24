@@ -30,4 +30,8 @@ var (
 
 	// ErrNoProductsToDelete — в открытой приёмке нет товаров, удалять нечего.
 	ErrNoProductsToDelete = errors.New("в приёмке нет товаров для удаления")
+
+	// ErrInvalidListParams — неверные параметры списка ПВЗ: страница, её
+	// размер или период.
+	ErrInvalidListParams = errors.New("неверные параметры списка")
 )
