@@ -518,11 +518,6 @@ func TestBadRequest(t *testing.T) {
 func TestDocs(t *testing.T) {
 	h := newTestRouter()
 
-	t.Run("корень ведёт в Swagger UI", func(t *testing.T) {
-		rec := serve(h, http.MethodGet, "/", "", "")
-		assert.Equal(t, http.StatusFound, rec.Code)
-		assert.Equal(t, "/docs/", rec.Header().Get("Location"))
-	})
 	t.Run("страница Swagger UI", func(t *testing.T) {
 		rec := serve(h, http.MethodGet, "/docs/", "", "")
 		assert.Equal(t, http.StatusOK, rec.Code)
@@ -544,6 +539,48 @@ func TestDocs(t *testing.T) {
 		rec := serve(h, http.MethodGet, "/docs/whatever", "", "")
 		assert.Equal(t, http.StatusNotFound, rec.Code)
 	})
+}
+
+func TestFrontend(t *testing.T) {
+	h := newTestRouter()
+
+	t.Run("страница на корне", func(t *testing.T) {
+		rec := serve(h, http.MethodGet, "/", "", "")
+
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Contains(t, rec.Header().Get("Content-Type"), "text/html")
+		assert.Contains(t, rec.Header().Get("Content-Security-Policy"), "default-src 'self'")
+		assert.Equal(t, "no-cache", rec.Header().Get("Cache-Control"))
+		assert.Contains(t, rec.Body.String(), `<script type="module" src="/assets/app.js">`)
+	})
+
+	files := []struct {
+		path, contentType string
+	}{
+		{"/assets/app.js", "javascript"},
+		{"/assets/api.js", "javascript"},
+		{"/assets/dom.js", "javascript"},
+		{"/assets/style.css", "text/css"},
+		{"/assets/favicon.svg", "image/svg+xml"},
+		{"/assets/fonts/source-code-pro-cyrillic-400-normal.woff2", "font/woff2"},
+	}
+	for _, f := range files {
+		t.Run(f.path, func(t *testing.T) {
+			rec := serve(h, http.MethodGet, f.path, "", "")
+
+			assert.Equal(t, http.StatusOK, rec.Code)
+			assert.Contains(t, rec.Header().Get("Content-Type"), f.contentType)
+			assert.NotEmpty(t, rec.Body.Bytes())
+		})
+	}
+
+	for _, path := range []string{"/assets/", "/assets/fonts/", "/assets/nope.js", "/index.html", "/web.go", "/assets/../web.go"} {
+		t.Run("нет "+path, func(t *testing.T) {
+			rec := serve(h, http.MethodGet, path, "", "")
+			assert.NotEqual(t, http.StatusOK, rec.Code)
+			assert.NotContains(t, rec.Body.String(), "package web")
+		})
+	}
 }
 
 // serve выполняет запрос; token, если не пустой, уходит в Authorization.

@@ -1,0 +1,531 @@
+/* Стиль портфолио givemeanoffer.ru. Значения скопированы из
+   portfolio/design/tokens.md: связи между репозиториями нет, поэтому при смене
+   дизайна портфолио их нужно обновить здесь вручную. */
+
+@font-face {
+  font-family: 'Source Code Pro';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(fonts/source-code-pro-cyrillic-400-normal.woff2) format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+
+@font-face {
+  font-family: 'Source Code Pro';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 500;
+  src: url(fonts/source-code-pro-cyrillic-500-normal.woff2) format('woff2');
+  unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116;
+}
+
+@font-face {
+  font-family: 'Source Code Pro';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 400;
+  src: url(fonts/source-code-pro-latin-400-normal.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+@font-face {
+  font-family: 'Source Code Pro';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 500;
+  src: url(fonts/source-code-pro-latin-500-normal.woff2) format('woff2');
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329,
+    U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+
+:root {
+  --color-bg: #171717;
+  --color-surface: #ffffff;
+  --color-text: #282828;
+  --color-muted: rgb(40 40 40 / 0.5);
+  --color-tag: rgb(40 40 40 / 0.06);
+  --color-frame: rgb(40 40 40 / 0.12);
+
+  --font-mono: 'Source Code Pro', ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  --tracking: -0.04em;
+  --lh-tight: 0.97;
+  --lh-text: 1.2;
+  --lh-title: 1.05;
+
+  --text-title: 500 20px / var(--lh-title) var(--font-mono);
+  --text-nav: 500 16px / normal var(--font-mono);
+  --text-body: 400 16px / var(--lh-text) var(--font-mono);
+  --text-sub: 400 15px / var(--lh-text) var(--font-mono);
+  --text-caption: 400 12px / var(--lh-tight) var(--font-mono);
+
+  /* Колонка шире, чем у портфолио (528px): здесь формы, списки и журнал
+     с длинными путями. Остальные размеры из макета. */
+  --column: 640px;
+  --page-top: 39px;
+  --page-gutter: 16px;
+  --card-gap: 17px;
+  --card-radius: 15px;
+  --card-pad-x: 16px;
+  --card-pad-y: 20px;
+  --radius-small: 7px;
+
+  --bridge-inset: 83px;
+  --bridge-notch: 8.5px;
+}
+
+@media (max-width: 671px) {
+  :root {
+    --page-top: 16px;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  background: var(--color-bg);
+  color: var(--color-text);
+  font: var(--text-body);
+  letter-spacing: var(--tracking);
+  overflow-wrap: anywhere;
+}
+
+h1,
+h2,
+p,
+ol,
+ul,
+pre {
+  margin: 0;
+  padding: 0;
+}
+
+ol,
+ul {
+  list-style: none;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-text);
+  outline-offset: 2px;
+}
+
+code {
+  font: inherit;
+  background: var(--color-tag);
+  border-radius: 4px;
+  padding: 0 4px;
+}
+
+[hidden] {
+  display: none !important;
+}
+
+.muted {
+  color: var(--color-muted);
+}
+
+.small {
+  font: var(--text-caption);
+}
+
+/* --- страница и карточки ------------------------------------------------ */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--card-gap);
+  max-width: calc(var(--column) + 2 * var(--page-gutter));
+  margin: 0 auto;
+  padding: var(--page-top) var(--page-gutter) 48px;
+}
+
+.card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: var(--color-surface);
+  border-radius: var(--card-radius);
+  padding: var(--card-pad-y) var(--card-pad-x);
+}
+
+/* Перемычка между карточками, как в портфолио: белая полоса, концы вырезаны
+   полукругами цвета фона. */
+.card + .card::before {
+  content: '';
+  position: absolute;
+  left: var(--bridge-inset);
+  right: var(--bridge-inset);
+  top: calc(-1 * var(--card-gap) - 1px);
+  height: calc(var(--card-gap) + 2px);
+  background:
+    radial-gradient(circle at 0 50%, var(--color-bg) var(--bridge-notch), transparent calc(var(--bridge-notch) + 0.5px)),
+    radial-gradient(circle at 100% 50%, var(--color-bg) var(--bridge-notch), transparent calc(var(--bridge-notch) + 0.5px)),
+    var(--color-surface);
+}
+
+.hero {
+  gap: 48px;
+  padding-top: 16px;
+}
+
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  font: var(--text-nav);
+  letter-spacing: 0;
+  text-transform: uppercase;
+}
+
+.hero-text {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.title {
+  font: var(--text-title);
+  text-transform: uppercase;
+}
+
+.section-title {
+  font: var(--text-title);
+  text-transform: uppercase;
+}
+
+.section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+}
+
+/* --- кнопки и поля ------------------------------------------------------ */
+
+.buttons {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.button {
+  font: var(--text-sub);
+  letter-spacing: var(--tracking);
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-frame);
+  border-radius: var(--radius-small);
+  padding: 9px 14px;
+  cursor: pointer;
+}
+
+.button:hover:not(:disabled) {
+  border-color: var(--color-muted);
+}
+
+.button.primary,
+.button[aria-pressed='true'] {
+  color: var(--color-surface);
+  background: var(--color-text);
+  border-color: var(--color-text);
+}
+
+.button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.text-button {
+  font: var(--text-sub);
+  letter-spacing: var(--tracking);
+  color: var(--color-muted);
+  background: none;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.text-button:hover {
+  color: var(--color-text);
+}
+
+.panel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--color-tag);
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.label {
+  font: var(--text-caption);
+  color: var(--color-muted);
+  text-transform: uppercase;
+  letter-spacing: 0;
+}
+
+.input {
+  font: var(--text-sub);
+  letter-spacing: var(--tracking);
+  color: var(--color-text);
+  background: var(--color-surface);
+  border: 1px solid var(--color-frame);
+  border-radius: var(--radius-small);
+  padding: 8px 10px;
+  min-height: 38px;
+}
+
+.hint {
+  flex-basis: 100%;
+  font: var(--text-sub);
+}
+
+.message {
+  font: var(--text-sub);
+}
+
+.message.error {
+  font-weight: 500;
+}
+
+.message.error::before {
+  content: '! ';
+}
+
+.role-state {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.role-state:empty {
+  display: none;
+}
+
+/* --- список ПВЗ --------------------------------------------------------- */
+
+.pvz-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.pvz + .pvz {
+  border-top: 1px solid var(--color-tag);
+}
+
+.pvz-head {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  width: 100%;
+  padding: 14px 0;
+  font: var(--text-sub);
+  letter-spacing: var(--tracking);
+  color: var(--color-text);
+  text-align: left;
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
+.pvz-title {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.pvz-city {
+  font: var(--text-title);
+}
+
+.pvz-city::before {
+  content: '+ ';
+  color: var(--color-muted);
+}
+
+.pvz-head[aria-expanded='true'] .pvz-city::before {
+  content: '− ';
+}
+
+.badge,
+.tag {
+  font: var(--text-caption);
+  letter-spacing: var(--tracking);
+  background: var(--color-tag);
+  border-radius: 4px;
+  padding: 3px 6px;
+}
+
+.badge {
+  color: var(--color-surface);
+  background: var(--color-text);
+}
+
+.pvz-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 0 0 18px 20px;
+}
+
+.actions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.receptions {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.reception {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-left: 12px;
+  border-left: 2px solid var(--color-tag);
+}
+
+.reception.open {
+  border-left-color: var(--color-text);
+}
+
+.reception-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  font: var(--text-sub);
+}
+
+.products {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.pager {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  font: var(--text-sub);
+}
+
+.pager:empty {
+  display: none;
+}
+
+/* --- журнал запросов ---------------------------------------------------- */
+
+.log {
+  display: flex;
+  flex-direction: column;
+  font: var(--text-sub);
+}
+
+.log > li + li {
+  border-top: 1px solid var(--color-tag);
+}
+
+.log-line {
+  display: grid;
+  grid-template-columns: auto 1fr auto auto;
+  align-items: baseline;
+  gap: 12px;
+  padding: 8px 0;
+  cursor: pointer;
+  list-style: none;
+}
+
+.log-line::-webkit-details-marker {
+  display: none;
+}
+
+.log-request {
+  min-width: 0;
+}
+
+.status {
+  font: var(--text-caption);
+  background: var(--color-tag);
+  border-radius: 4px;
+  padding: 3px 6px;
+}
+
+.status.failed {
+  color: var(--color-surface);
+  background: var(--color-text);
+}
+
+.log-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 0 0 12px;
+}
+
+.log-body pre {
+  font: var(--text-caption);
+  line-height: 1.4;
+  letter-spacing: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  background: var(--color-tag);
+  border-radius: var(--radius-small);
+  padding: 10px;
+  max-height: 320px;
+  overflow: auto;
+}
+
+@media (max-width: 559px) {
+  /* время запроса на узком экране прячется: путь важнее */
+  .log-line {
+    grid-template-columns: 1fr auto auto;
+  }
+
+  .log-line > :first-child {
+    display: none;
+  }
+
+  .pvz-body {
+    padding-left: 0;
+  }
+}

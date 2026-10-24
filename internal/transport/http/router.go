@@ -27,14 +27,15 @@ type Deps struct {
 	Products   ProductService
 }
 
-// NewRouter собирает все HTTP-маршруты сервиса: ручки контракта и служебные
-// (health, Swagger UI). Ручки контракта закрыты проверкой токена и роли.
+// NewRouter собирает все HTTP-маршруты сервиса: ручки контракта, служебные
+// (health, Swagger UI) и фронтенд. Ручки контракта закрыты проверкой токена и
+// роли.
 func NewRouter(log *slog.Logger, deps Deps) http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", health(deps.DB, log))
-	// Пока фронта нет, корень поддомена ведёт в Swagger UI. 302, а не 301:
-	// когда появится фронт, браузеры не должны помнить старый редирект.
-	mux.Handle("GET /{$}", http.RedirectHandler("/docs/", http.StatusFound))
+	// Фронтенд: страница на / и её файлы на /assets/ (web/).
+	mux.HandleFunc("GET /{$}", frontendPage)
+	mux.Handle("GET /assets/", frontendAssets())
 	mux.HandleFunc("GET /docs/{$}", swaggerUI)
 	mux.HandleFunc("GET /docs/openapi.yaml", openAPISpec)
 

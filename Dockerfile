@@ -1,5 +1,5 @@
 # Образ pvz для сервера. Сборка в CI (linux/amd64), на сервере только pull.
-# Миграции, контракт для Swagger UI и страница Swagger UI встроены в бинарник
+# Миграции, контракт, Swagger UI и фронтенд (web/) встроены в бинарник
 # (embed), поэтому в итоговом образе один файл.
 
 FROM golang:1.27.3-alpine AS build
@@ -10,6 +10,7 @@ COPY api ./api
 COPY cmd ./cmd
 COPY internal ./internal
 COPY migrations ./migrations
+COPY web ./web
 # Статическая сборка без cgo: бинарнику не нужны библиотеки из образа.
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/pvz ./cmd/pvz
 
