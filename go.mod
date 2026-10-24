@@ -4,6 +4,7 @@ go 1.27.3
 
 require (
 	github.com/avito-tech/go-transaction-manager/drivers/pgxv5/v2 v2.0.5
+	github.com/avito-tech/go-transaction-manager/trm/v2 v2.0.5
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.11.0
@@ -16,7 +17,6 @@ require (
 
 require (
 	github.com/apapsch/go-jsonmerge/v2 v2.0.0 // indirect
-	github.com/avito-tech/go-transaction-manager/trm/v2 v2.0.5 // indirect
 	github.com/brunoga/deep v1.3.1 // indirect
 	github.com/clipperhouse/uax29/v2 v2.2.0 // indirect
 	github.com/dprotaso/go-yit v0.0.0-20220510233725-9ba8df137936 // indirect

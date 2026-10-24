@@ -19,6 +19,8 @@ import (
 	"syscall"
 	"time"
 
+	trmpgx "github.com/avito-tech/go-transaction-manager/drivers/pgxv5/v2"
+	"github.com/avito-tech/go-transaction-manager/trm/v2/manager"
 	"golang.org/x/sync/errgroup"
 
 	"github.com/HollowKaeden/pvz-service/internal/auth"
@@ -113,16 +115,22 @@ func serve(ctx context.Context, cfg config.Config, log *slog.Logger) error {
 	}
 
 	db := postgres.NewDB(pool)
-	pvzService, err := service.NewPVZ(ctx, postgres.NewPVZRepository(db), postgres.NewCityRepository(db))
+	txManager, err := manager.New(trmpgx.NewDefaultFactory(pool))
+	if err != nil {
+		return fmt.Errorf("менеджер транзакций: %w", err)
+	}
+	pvzRepo := postgres.NewPVZRepository(db)
+	pvzService, err := service.NewPVZ(ctx, pvzRepo, postgres.NewCityRepository(db))
 	if err != nil {
 		return err
 	}
 	tokens := auth.NewTokens(cfg.JWTSecret, tokenTTL)
 	router := httptransport.NewRouter(log, httptransport.Deps{
-		DB:     pool,
-		Tokens: tokens,
-		Auth:   service.NewAuth(tokens),
-		PVZ:    pvzService,
+		DB:         pool,
+		Tokens:     tokens,
+		Auth:       service.NewAuth(tokens),
+		PVZ:        pvzService,
+		Receptions: service.NewReception(txManager, pvzRepo, postgres.NewReceptionRepository(db)),
 	})
 
 	httpSrv := &http.Server{

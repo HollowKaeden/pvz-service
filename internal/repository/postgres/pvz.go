@@ -2,8 +2,10 @@ package postgres
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	"github.com/HollowKaeden/pvz-service/internal/domain"
@@ -36,6 +38,31 @@ func (r *PVZRepository) Create(ctx context.Context, pvz domain.PVZ) error {
 		return fmt.Errorf("insert pvz: города %q нет в справочнике", pvz.City)
 	}
 	return nil
+}
+
+// Lock блокирует строку ПВЗ до конца транзакции: другие транзакции, которые
+// хотят заблокировать тот же ПВЗ, ждут её коммита или отката. Вызывается только
+// внутри транзакции, иначе блокировка снимается сразу после запроса.
+func (r *PVZRepository) Lock(ctx context.Context, id uuid.UUID) error {
+	var locked uuid.UUID
+	err := r.db.conn(ctx).QueryRow(ctx, `SELECT id FROM pvz WHERE id = $1 FOR UPDATE`, id).Scan(&locked)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.ErrPVZNotFound
+	}
+	if err != nil {
+		return fmt.Errorf("lock pvz: %w", err)
+	}
+	return nil
+}
+
+// Exists сообщает, есть ли ПВЗ с таким id.
+func (r *PVZRepository) Exists(ctx context.Context, id uuid.UUID) (bool, error) {
+	var exists bool
+	err := r.db.conn(ctx).QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM pvz WHERE id = $1)`, id).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("pvz exists: %w", err)
+	}
+	return exists, nil
 }
 
 // CityRepository читает справочник городов.

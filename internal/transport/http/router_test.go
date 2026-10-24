@@ -54,12 +54,54 @@ func (fakePVZ) Create(_ context.Context, city string) (domain.PVZ, error) {
 	}
 }
 
+// fakeReceptions — ReceptionService для тестов HTTP-слоя: ведёт себя по pvzId
+// из констант ниже.
+type fakeReceptions struct{}
+
+var (
+	pvzWithReception = uuid.MustParse("6f1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d") // открыть нельзя, закрыть можно
+	pvzEmpty         = uuid.MustParse("6f1b2c3d-4e5f-4a6b-8c7d-000000000002") // открыть можно, закрыть нечего
+	pvzMissing       = uuid.MustParse("6f1b2c3d-4e5f-4a6b-8c7d-000000000003") // такого ПВЗ нет
+)
+
+func testReception(pvzID uuid.UUID, status domain.ReceptionStatus) domain.Reception {
+	return domain.Reception{
+		ID:       uuid.MustParse("0192f1a4-7b3c-7d2e-8f00-0000000000a1"),
+		PVZID:    pvzID,
+		DateTime: time.Date(2026, 10, 24, 12, 4, 5, 123456000, time.UTC),
+		Status:   status,
+	}
+}
+
+func (fakeReceptions) Open(_ context.Context, pvzID uuid.UUID) (domain.Reception, error) {
+	switch pvzID {
+	case pvzEmpty:
+		return testReception(pvzID, domain.ReceptionInProgress), nil
+	case pvzWithReception:
+		return domain.Reception{}, domain.ErrReceptionAlreadyOpen
+	default:
+		return domain.Reception{}, domain.ErrPVZNotFound
+	}
+}
+
+func (fakeReceptions) Close(_ context.Context, pvzID uuid.UUID) (domain.Reception, error) {
+	switch pvzID {
+	case pvzWithReception:
+		return testReception(pvzID, domain.ReceptionClosed), nil
+	case pvzEmpty:
+		return domain.Reception{}, domain.ErrNoOpenReception
+	default:
+		return domain.Reception{}, domain.ErrPVZNotFound
+	}
+}
+
 func newRouterWithDB(db Pinger) http.Handler {
 	return NewRouter(slog.New(slog.DiscardHandler), Deps{
-		DB:     db,
-		Tokens: testTokens,
-		Auth:   service.NewAuth(testTokens),
-		PVZ:    fakePVZ{},
+		DB:         db,
+		Tokens:     testTokens,
+		Auth:       service.NewAuth(testTokens),
+		PVZ:        fakePVZ{},
+		Receptions: fakeReceptions{},
 	})
 }
 
@@ -120,8 +162,6 @@ func TestContractRoutesNotImplemented(t *testing.T) {
 		{http.MethodPost, "/login", `{"email":"a@b.ru","password":"p"}`, ""},
 		{http.MethodGet, "/pvz?page=1&limit=10", "", employee},
 		{http.MethodGet, "/pvz", "", moderator},
-		{http.MethodPost, "/receptions", `{"pvzId":"` + pvzID + `"}`, employee},
-		{http.MethodPost, "/pvz/" + pvzID + "/close_last_reception", "", employee},
 		{http.MethodPost, "/products", `{"type":"обувь","pvzId":"` + pvzID + `"}`, employee},
 		{http.MethodPost, "/pvz/" + pvzID + "/delete_last_product", "", employee},
 	}
@@ -198,6 +238,70 @@ func TestPostPVZ(t *testing.T) {
 		assert.Equal(t, http.StatusInternalServerError, rec.Code)
 		assertErrorBody(t, rec)
 		assert.NotContains(t, rec.Body.String(), "10.0.0.5")
+	})
+}
+
+func TestReceptions(t *testing.T) {
+	h := newTestRouter()
+	employee, moderator := tokenFor(t, domain.RoleEmployee), tokenFor(t, domain.RoleModerator)
+	openBody := func(id uuid.UUID) string { return `{"pvzId":"` + id.String() + `"}` }
+	closePath := func(id uuid.UUID) string { return "/pvz/" + id.String() + "/close_last_reception" }
+
+	t.Run("приёмка открыта", func(t *testing.T) {
+		rec := serve(h, http.MethodPost, "/receptions", openBody(pvzEmpty), employee)
+
+		require.Equal(t, http.StatusCreated, rec.Code, rec.Body.String())
+		assert.JSONEq(t, `{
+			"id":"0192f1a4-7b3c-7d2e-8f00-0000000000a1",
+			"dateTime":"2026-10-24T12:04:05.123456Z",
+			"pvzId":"`+pvzEmpty.String()+`",
+			"status":"in_progress"
+		}`, rec.Body.String())
+	})
+	t.Run("приёмка закрыта", func(t *testing.T) {
+		rec := serve(h, http.MethodPost, closePath(pvzWithReception), "", employee)
+
+		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+		assert.JSONEq(t, `{
+			"id":"0192f1a4-7b3c-7d2e-8f00-0000000000a1",
+			"dateTime":"2026-10-24T12:04:05.123456Z",
+			"pvzId":"`+pvzWithReception.String()+`",
+			"status":"close"
+		}`, rec.Body.String())
+	})
+
+	// Нарушенные правила — 400 с текстом ошибки, как в контракте. Несуществующий
+	// ПВЗ — 404: в контракте его нет, но так правильнее по HTTP.
+	errorTests := []struct {
+		name, method, path, body string
+		wantStatus               int
+		wantMsg                  string
+	}{
+		{"уже есть открытая приёмка", http.MethodPost, "/receptions", openBody(pvzWithReception),
+			http.StatusBadRequest, "на ПВЗ уже есть незакрытая приёмка"},
+		{"закрывать нечего", http.MethodPost, closePath(pvzEmpty), "",
+			http.StatusBadRequest, "на ПВЗ нет открытой приёмки"},
+		{"открытие на несуществующем ПВЗ", http.MethodPost, "/receptions", openBody(pvzMissing),
+			http.StatusNotFound, "ПВЗ не найден"},
+		{"закрытие на несуществующем ПВЗ", http.MethodPost, closePath(pvzMissing), "",
+			http.StatusNotFound, "ПВЗ не найден"},
+	}
+	for _, tt := range errorTests {
+		t.Run(tt.name, func(t *testing.T) {
+			rec := serve(h, tt.method, tt.path, tt.body, employee)
+
+			assert.Equal(t, tt.wantStatus, rec.Code)
+			assertErrorBody(t, rec)
+			assert.Contains(t, rec.Body.String(), tt.wantMsg)
+		})
+	}
+
+	// Приёмками занимается только сотрудник ПВЗ.
+	t.Run("модератору нельзя", func(t *testing.T) {
+		assert.Equal(t, http.StatusForbidden,
+			serve(h, http.MethodPost, "/receptions", openBody(pvzEmpty), moderator).Code)
+		assert.Equal(t, http.StatusForbidden,
+			serve(h, http.MethodPost, closePath(pvzWithReception), "", moderator).Code)
 	})
 }
 

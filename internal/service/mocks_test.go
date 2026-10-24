@@ -8,6 +8,7 @@ import (
 	"context"
 
 	"github.com/HollowKaeden/pvz-service/internal/domain"
+	"github.com/google/uuid"
 	mock "github.com/stretchr/testify/mock"
 )
 
@@ -200,6 +201,129 @@ func (_c *mockPVZRepository_Create_Call) RunAndReturn(run func(ctx context.Conte
 	return _c
 }
 
+// Exists provides a mock function for the type mockPVZRepository
+func (_mock *mockPVZRepository) Exists(ctx context.Context, id uuid.UUID) (bool, error) {
+	ret := _mock.Called(ctx, id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Exists")
+	}
+
+	var r0 bool
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, uuid.UUID) (bool, error)); ok {
+		return returnFunc(ctx, id)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, uuid.UUID) bool); ok {
+		r0 = returnFunc(ctx, id)
+	} else {
+		r0 = ret.Get(0).(bool)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, uuid.UUID) error); ok {
+		r1 = returnFunc(ctx, id)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// mockPVZRepository_Exists_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Exists'
+type mockPVZRepository_Exists_Call struct {
+	*mock.Call
+}
+
+// Exists is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id uuid.UUID
+func (_e *mockPVZRepository_Expecter) Exists(ctx any, id any) *mockPVZRepository_Exists_Call {
+	return &mockPVZRepository_Exists_Call{Call: _e.mock.On("Exists", ctx, id)}
+}
+
+func (_c *mockPVZRepository_Exists_Call) Run(run func(ctx context.Context, id uuid.UUID)) *mockPVZRepository_Exists_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 uuid.UUID
+		if args[1] != nil {
+			arg1 = args[1].(uuid.UUID)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *mockPVZRepository_Exists_Call) Return(b bool, err error) *mockPVZRepository_Exists_Call {
+	_c.Call.Return(b, err)
+	return _c
+}
+
+func (_c *mockPVZRepository_Exists_Call) RunAndReturn(run func(ctx context.Context, id uuid.UUID) (bool, error)) *mockPVZRepository_Exists_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// Lock provides a mock function for the type mockPVZRepository
+func (_mock *mockPVZRepository) Lock(ctx context.Context, id uuid.UUID) error {
+	ret := _mock.Called(ctx, id)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Lock")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, uuid.UUID) error); ok {
+		r0 = returnFunc(ctx, id)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// mockPVZRepository_Lock_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Lock'
+type mockPVZRepository_Lock_Call struct {
+	*mock.Call
+}
+
+// Lock is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id uuid.UUID
+func (_e *mockPVZRepository_Expecter) Lock(ctx any, id any) *mockPVZRepository_Lock_Call {
+	return &mockPVZRepository_Lock_Call{Call: _e.mock.On("Lock", ctx, id)}
+}
+
+func (_c *mockPVZRepository_Lock_Call) Run(run func(ctx context.Context, id uuid.UUID)) *mockPVZRepository_Lock_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 uuid.UUID
+		if args[1] != nil {
+			arg1 = args[1].(uuid.UUID)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *mockPVZRepository_Lock_Call) Return(err error) *mockPVZRepository_Lock_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *mockPVZRepository_Lock_Call) RunAndReturn(run func(ctx context.Context, id uuid.UUID) error) *mockPVZRepository_Lock_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // newMockCityRepository creates a new instance of mockCityRepository. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
 // The first argument is typically a *testing.T value.
 func newMockCityRepository(t interface {
@@ -294,6 +418,321 @@ func (_c *mockCityRepository_List_Call) Return(strings []string, err error) *moc
 }
 
 func (_c *mockCityRepository_List_Call) RunAndReturn(run func(ctx context.Context) ([]string, error)) *mockCityRepository_List_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// newMockReceptionRepository creates a new instance of mockReceptionRepository. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
+// The first argument is typically a *testing.T value.
+func newMockReceptionRepository(t interface {
+	mock.TestingT
+	Cleanup(func())
+}) *mockReceptionRepository {
+	if helper, ok := t.(interface{ Helper() }); ok {
+		helper.Helper()
+	}
+
+	mock := &mockReceptionRepository{}
+	mock.Mock.Test(t)
+
+	t.Cleanup(func() {
+		if helper, ok := t.(interface{ Helper() }); ok {
+			helper.Helper()
+		}
+		mock.AssertExpectations(t)
+	})
+
+	return mock
+}
+
+// mockReceptionRepository is an autogenerated mock type for the ReceptionRepository type
+type mockReceptionRepository struct {
+	mock.Mock
+}
+
+type mockReceptionRepository_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *mockReceptionRepository) EXPECT() *mockReceptionRepository_Expecter {
+	return &mockReceptionRepository_Expecter{mock: &_m.Mock}
+}
+
+// Create provides a mock function for the type mockReceptionRepository
+func (_mock *mockReceptionRepository) Create(ctx context.Context, rec domain.Reception) error {
+	ret := _mock.Called(ctx, rec)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Create")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, domain.Reception) error); ok {
+		r0 = returnFunc(ctx, rec)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// mockReceptionRepository_Create_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Create'
+type mockReceptionRepository_Create_Call struct {
+	*mock.Call
+}
+
+// Create is a helper method to define mock.On call
+//   - ctx context.Context
+//   - rec domain.Reception
+func (_e *mockReceptionRepository_Expecter) Create(ctx any, rec any) *mockReceptionRepository_Create_Call {
+	return &mockReceptionRepository_Create_Call{Call: _e.mock.On("Create", ctx, rec)}
+}
+
+func (_c *mockReceptionRepository_Create_Call) Run(run func(ctx context.Context, rec domain.Reception)) *mockReceptionRepository_Create_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 domain.Reception
+		if args[1] != nil {
+			arg1 = args[1].(domain.Reception)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *mockReceptionRepository_Create_Call) Return(err error) *mockReceptionRepository_Create_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *mockReceptionRepository_Create_Call) RunAndReturn(run func(ctx context.Context, rec domain.Reception) error) *mockReceptionRepository_Create_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// LockOpen provides a mock function for the type mockReceptionRepository
+func (_mock *mockReceptionRepository) LockOpen(ctx context.Context, pvzID uuid.UUID) (domain.Reception, error) {
+	ret := _mock.Called(ctx, pvzID)
+
+	if len(ret) == 0 {
+		panic("no return value specified for LockOpen")
+	}
+
+	var r0 domain.Reception
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, uuid.UUID) (domain.Reception, error)); ok {
+		return returnFunc(ctx, pvzID)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context, uuid.UUID) domain.Reception); ok {
+		r0 = returnFunc(ctx, pvzID)
+	} else {
+		r0 = ret.Get(0).(domain.Reception)
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context, uuid.UUID) error); ok {
+		r1 = returnFunc(ctx, pvzID)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// mockReceptionRepository_LockOpen_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'LockOpen'
+type mockReceptionRepository_LockOpen_Call struct {
+	*mock.Call
+}
+
+// LockOpen is a helper method to define mock.On call
+//   - ctx context.Context
+//   - pvzID uuid.UUID
+func (_e *mockReceptionRepository_Expecter) LockOpen(ctx any, pvzID any) *mockReceptionRepository_LockOpen_Call {
+	return &mockReceptionRepository_LockOpen_Call{Call: _e.mock.On("LockOpen", ctx, pvzID)}
+}
+
+func (_c *mockReceptionRepository_LockOpen_Call) Run(run func(ctx context.Context, pvzID uuid.UUID)) *mockReceptionRepository_LockOpen_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 uuid.UUID
+		if args[1] != nil {
+			arg1 = args[1].(uuid.UUID)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *mockReceptionRepository_LockOpen_Call) Return(reception domain.Reception, err error) *mockReceptionRepository_LockOpen_Call {
+	_c.Call.Return(reception, err)
+	return _c
+}
+
+func (_c *mockReceptionRepository_LockOpen_Call) RunAndReturn(run func(ctx context.Context, pvzID uuid.UUID) (domain.Reception, error)) *mockReceptionRepository_LockOpen_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// SetStatus provides a mock function for the type mockReceptionRepository
+func (_mock *mockReceptionRepository) SetStatus(ctx context.Context, id uuid.UUID, status domain.ReceptionStatus) error {
+	ret := _mock.Called(ctx, id, status)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SetStatus")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, uuid.UUID, domain.ReceptionStatus) error); ok {
+		r0 = returnFunc(ctx, id, status)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// mockReceptionRepository_SetStatus_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SetStatus'
+type mockReceptionRepository_SetStatus_Call struct {
+	*mock.Call
+}
+
+// SetStatus is a helper method to define mock.On call
+//   - ctx context.Context
+//   - id uuid.UUID
+//   - status domain.ReceptionStatus
+func (_e *mockReceptionRepository_Expecter) SetStatus(ctx any, id any, status any) *mockReceptionRepository_SetStatus_Call {
+	return &mockReceptionRepository_SetStatus_Call{Call: _e.mock.On("SetStatus", ctx, id, status)}
+}
+
+func (_c *mockReceptionRepository_SetStatus_Call) Run(run func(ctx context.Context, id uuid.UUID, status domain.ReceptionStatus)) *mockReceptionRepository_SetStatus_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 uuid.UUID
+		if args[1] != nil {
+			arg1 = args[1].(uuid.UUID)
+		}
+		var arg2 domain.ReceptionStatus
+		if args[2] != nil {
+			arg2 = args[2].(domain.ReceptionStatus)
+		}
+		run(
+			arg0,
+			arg1,
+			arg2,
+		)
+	})
+	return _c
+}
+
+func (_c *mockReceptionRepository_SetStatus_Call) Return(err error) *mockReceptionRepository_SetStatus_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *mockReceptionRepository_SetStatus_Call) RunAndReturn(run func(ctx context.Context, id uuid.UUID, status domain.ReceptionStatus) error) *mockReceptionRepository_SetStatus_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// newMockTxManager creates a new instance of mockTxManager. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.
+// The first argument is typically a *testing.T value.
+func newMockTxManager(t interface {
+	mock.TestingT
+	Cleanup(func())
+}) *mockTxManager {
+	if helper, ok := t.(interface{ Helper() }); ok {
+		helper.Helper()
+	}
+
+	mock := &mockTxManager{}
+	mock.Mock.Test(t)
+
+	t.Cleanup(func() {
+		if helper, ok := t.(interface{ Helper() }); ok {
+			helper.Helper()
+		}
+		mock.AssertExpectations(t)
+	})
+
+	return mock
+}
+
+// mockTxManager is an autogenerated mock type for the TxManager type
+type mockTxManager struct {
+	mock.Mock
+}
+
+type mockTxManager_Expecter struct {
+	mock *mock.Mock
+}
+
+func (_m *mockTxManager) EXPECT() *mockTxManager_Expecter {
+	return &mockTxManager_Expecter{mock: &_m.Mock}
+}
+
+// Do provides a mock function for the type mockTxManager
+func (_mock *mockTxManager) Do(ctx context.Context, fn func(ctx context.Context) error) error {
+	ret := _mock.Called(ctx, fn)
+
+	if len(ret) == 0 {
+		panic("no return value specified for Do")
+	}
+
+	var r0 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context, func(ctx context.Context) error) error); ok {
+		r0 = returnFunc(ctx, fn)
+	} else {
+		r0 = ret.Error(0)
+	}
+	return r0
+}
+
+// mockTxManager_Do_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'Do'
+type mockTxManager_Do_Call struct {
+	*mock.Call
+}
+
+// Do is a helper method to define mock.On call
+//   - ctx context.Context
+//   - fn func(ctx context.Context) error
+func (_e *mockTxManager_Expecter) Do(ctx any, fn any) *mockTxManager_Do_Call {
+	return &mockTxManager_Do_Call{Call: _e.mock.On("Do", ctx, fn)}
+}
+
+func (_c *mockTxManager_Do_Call) Run(run func(ctx context.Context, fn func(ctx context.Context) error)) *mockTxManager_Do_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		var arg1 func(ctx context.Context) error
+		if args[1] != nil {
+			arg1 = args[1].(func(ctx context.Context) error)
+		}
+		run(
+			arg0,
+			arg1,
+		)
+	})
+	return _c
+}
+
+func (_c *mockTxManager_Do_Call) Return(err error) *mockTxManager_Do_Call {
+	_c.Call.Return(err)
+	return _c
+}
+
+func (_c *mockTxManager_Do_Call) RunAndReturn(run func(ctx context.Context, fn func(ctx context.Context) error) error) *mockTxManager_Do_Call {
 	_c.Call.Return(run)
 	return _c
 }

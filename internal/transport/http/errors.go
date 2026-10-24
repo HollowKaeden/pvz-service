@@ -47,8 +47,15 @@ func handlerError(log *slog.Logger) func(http.ResponseWriter, *http.Request, err
 func domainStatus(err error) (int, bool) {
 	switch {
 	case errors.Is(err, domain.ErrInvalidRole),
-		errors.Is(err, domain.ErrCityNotAllowed):
+		errors.Is(err, domain.ErrCityNotAllowed),
+		errors.Is(err, domain.ErrReceptionAlreadyOpen),
+		errors.Is(err, domain.ErrNoOpenReception):
 		return http.StatusBadRequest, true
+	// В контракте 404 нет, там такой запрос назван неверным (400). Но ПВЗ из
+	// запроса не существует, и по HTTP это 404: так клиент отличит опечатку в
+	// id от нарушенного правила.
+	case errors.Is(err, domain.ErrPVZNotFound):
+		return http.StatusNotFound, true
 	default:
 		return 0, false
 	}

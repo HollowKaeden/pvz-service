@@ -15,6 +15,10 @@ import (
 // PVZRepository хранит ПВЗ.
 type PVZRepository interface {
 	Create(ctx context.Context, pvz domain.PVZ) error
+	// Lock блокирует строку ПВЗ до конца транзакции. Если ПВЗ нет, возвращает
+	// domain.ErrPVZNotFound.
+	Lock(ctx context.Context, id uuid.UUID) error
+	Exists(ctx context.Context, id uuid.UUID) (bool, error)
 }
 
 // CityRepository читает справочник городов.
