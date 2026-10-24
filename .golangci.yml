@@ -1,6 +1,11 @@
 # golangci-lint v2. Версия в CI закреплена в .github/workflows/ci.yml.
 version: "2"
 
+run:
+  # Интеграционные тесты (tests/integration) собираются только с этим тегом.
+  build-tags:
+    - integration
+
 linters:
   # standard: errcheck, govet, ineffassign, staticcheck, unused.
   default: standard

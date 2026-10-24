@@ -91,3 +91,19 @@ jobs:
 
       - name: Повторный запуск ничего не меняет
         run: go run ./cmd/pvz migrate
+
+  # Интеграционные тесты против настоящего Postgres (testcontainers поднимает
+  # его сам, Docker на раннере есть) и покрытие unit- и интеграционными
+  # тестами вместе: ниже 75% сборка падает.
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+
+      - name: Интеграционные тесты и покрытие
+        run: make cover
