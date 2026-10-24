@@ -10,6 +10,8 @@ import (
 )
 
 func TestLoad(t *testing.T) {
+	const dbURL = "postgres://pvz:pvz@localhost:5432/pvz"
+
 	tests := []struct {
 		name    string
 		env     map[string]string
@@ -18,22 +20,45 @@ func TestLoad(t *testing.T) {
 	}{
 		{
 			name: "значения по умолчанию",
-			want: Config{HTTPAddr: ":8080", LogLevel: slog.LevelInfo},
+			env:  map[string]string{"DATABASE_URL": dbURL},
+			want: Config{HTTPAddr: ":8080", LogLevel: slog.LevelInfo, DatabaseURL: dbURL, DBMaxConns: 10},
 		},
 		{
 			name: "из окружения",
-			env:  map[string]string{"HTTP_ADDR": "127.0.0.1:9090", "LOG_LEVEL": "DEBUG"},
-			want: Config{HTTPAddr: "127.0.0.1:9090", LogLevel: slog.LevelDebug},
+			env: map[string]string{
+				"HTTP_ADDR":        "127.0.0.1:9090",
+				"LOG_LEVEL":        "DEBUG",
+				"DATABASE_URL":     dbURL,
+				"DB_MAX_CONNS":     "5",
+				"MIGRATE_ON_START": "true",
+			},
+			want: Config{
+				HTTPAddr:       "127.0.0.1:9090",
+				LogLevel:       slog.LevelDebug,
+				DatabaseURL:    dbURL,
+				DBMaxConns:     5,
+				MigrateOnStart: true,
+			},
 		},
 		{
-			name:    "все ошибки разом",
-			env:     map[string]string{"HTTP_ADDR": "", "LOG_LEVEL": "verbose"},
-			wantErr: []string{"HTTP_ADDR", "LOG_LEVEL"},
+			name: "все ошибки разом",
+			env: map[string]string{
+				"HTTP_ADDR":        "",
+				"LOG_LEVEL":        "verbose",
+				"DB_MAX_CONNS":     "много",
+				"MIGRATE_ON_START": "наверное",
+			},
+			wantErr: []string{"HTTP_ADDR", "LOG_LEVEL", "DATABASE_URL", "DB_MAX_CONNS", "MIGRATE_ON_START"},
+		},
+		{
+			name:    "пул не может быть пустым",
+			env:     map[string]string{"DATABASE_URL": dbURL, "DB_MAX_CONNS": "0"},
+			wantErr: []string{"DB_MAX_CONNS"},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			for _, key := range []string{"HTTP_ADDR", "LOG_LEVEL"} {
+			for _, key := range []string{"HTTP_ADDR", "LOG_LEVEL", "DATABASE_URL", "DB_MAX_CONNS", "MIGRATE_ON_START"} {
 				unsetenv(t, key)
 			}
 			for k, v := range tt.env {

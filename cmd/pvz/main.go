@@ -1,6 +1,7 @@
 // Команда pvz — сервис приёмки товаров на ПВЗ.
 //
 //	pvz [serve]   HTTP API на :8080 (подкоманда по умолчанию)
+//	pvz migrate   применить миграции БД и выйти
 //
 // Настройки только из переменных окружения (см. internal/config и README).
 // Зависимости собираются здесь вручную, без DI-контейнеров и глобальных переменных.
@@ -21,6 +22,7 @@ import (
 	"golang.org/x/sync/errgroup"
 
 	"github.com/HollowKaeden/pvz-service/internal/config"
+	"github.com/HollowKaeden/pvz-service/internal/repository/postgres"
 	httptransport "github.com/HollowKaeden/pvz-service/internal/transport/http"
 )
 
@@ -43,12 +45,23 @@ func main() {
 }
 
 func run(log *slog.Logger, level *slog.LevelVar, args []string) error {
-	cmd := "serve"
+	name := "serve"
 	if len(args) > 0 {
-		cmd, args = args[0], args[1:]
+		name, args = args[0], args[1:]
 	}
 	if len(args) > 0 {
 		return fmt.Errorf("лишние аргументы: %q", args)
+	}
+
+	// Подкоманда проверяется до конфига: на опечатку в ней сервис должен
+	// ответить «неизвестная подкоманда», а не жалобой на окружение.
+	commands := map[string]func(context.Context, config.Config, *slog.Logger) error{
+		"serve":   serve,
+		"migrate": migrate,
+	}
+	cmd, ok := commands[name]
+	if !ok {
+		return fmt.Errorf("неизвестная подкоманда %q (есть: serve, migrate)", name)
 	}
 
 	cfg, err := config.Load()
@@ -61,19 +74,40 @@ func run(log *slog.Logger, level *slog.LevelVar, args []string) error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	switch cmd {
-	case "serve":
-		return serve(ctx, cfg, log)
-	default:
-		return fmt.Errorf("неизвестная подкоманда %q (есть: serve)", cmd)
-	}
+	return cmd(ctx, cfg, log)
 }
 
-// serve запускает все серверы процесса в одном errgroup: сигнал или падение
-// любого из них отменяет общий контекст, и остальные плавно останавливаются.
+// migrate применяет миграции и завершается. Нужна, когда миграции не
+// применяются при старте (MIGRATE_ON_START=false).
+func migrate(ctx context.Context, cfg config.Config, log *slog.Logger) error {
+	pool, err := postgres.NewPool(ctx, cfg.DatabaseURL, cfg.DBMaxConns)
+	if err != nil {
+		return err
+	}
+	defer pool.Close()
+
+	return postgres.Migrate(ctx, pool, log)
+}
+
+// serve поднимает зависимости и запускает все серверы процесса в одном
+// errgroup: сигнал или падение любого из них отменяет общий контекст, и
+// остальные плавно останавливаются. Пул БД закрывается последним, когда
+// запросов уже нет.
 func serve(ctx context.Context, cfg config.Config, log *slog.Logger) error {
+	pool, err := postgres.NewPool(ctx, cfg.DatabaseURL, cfg.DBMaxConns)
+	if err != nil {
+		return err
+	}
+	defer pool.Close()
+
+	if cfg.MigrateOnStart {
+		if err := postgres.Migrate(ctx, pool, log); err != nil {
+			return err
+		}
+	}
+
 	httpSrv := &http.Server{
-		Handler:           httptransport.NewRouter(log),
+		Handler:           httptransport.NewRouter(log, pool),
 		ReadHeaderTimeout: 5 * time.Second,
 		ReadTimeout:       10 * time.Second,
 		WriteTimeout:      10 * time.Second,

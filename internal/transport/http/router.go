@@ -11,9 +11,9 @@ import (
 
 // NewRouter собирает все HTTP-маршруты сервиса: ручки контракта и служебные
 // (health, Swagger UI).
-func NewRouter(log *slog.Logger) http.Handler {
+func NewRouter(log *slog.Logger, db Pinger) http.Handler {
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /health", health)
+	mux.HandleFunc("GET /health", health(db, log))
 	// Пока фронта нет, корень поддомена ведёт в Swagger UI. 302, а не 301:
 	// когда появится фронт, браузеры не должны помнить старый редирект.
 	mux.Handle("GET /{$}", http.RedirectHandler("/docs/", http.StatusFound))
@@ -30,10 +30,4 @@ func NewRouter(log *slog.Logger) http.Handler {
 	})
 
 	return logRequests(log, mux)
-}
-
-// health — проверка живости для healthcheck'а compose и проверки после деплоя.
-func health(w http.ResponseWriter, _ *http.Request) {
-	w.Header().Set("Content-Type", "application/json")
-	_, _ = w.Write([]byte(`{"status":"ok"}`))
 }

@@ -56,3 +56,36 @@ jobs:
 
       - name: Unit tests
         run: make test
+
+  # Миграции на настоящем Postgres той же версии, что на сервере.
+  migrations:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: pvz
+          POSTGRES_PASSWORD: pvz
+          POSTGRES_DB: pvz
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U pvz -d pvz"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 15
+    env:
+      DATABASE_URL: postgres://pvz:pvz@localhost:5432/pvz?sslmode=disable
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+
+      - name: Миграции применяются
+        run: go run ./cmd/pvz migrate
+
+      - name: Повторный запуск ничего не меняет
+        run: go run ./cmd/pvz migrate

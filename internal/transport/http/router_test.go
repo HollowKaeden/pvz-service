@@ -2,7 +2,9 @@ package httptransport
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"net/http"
@@ -16,26 +18,42 @@ import (
 	"github.com/HollowKaeden/pvz-service/api"
 )
 
-func TestHealth(t *testing.T) {
-	h := NewRouter(slog.New(slog.DiscardHandler))
+// fakeDB — Pinger для тестов: возвращает заданную ошибку.
+type fakeDB struct{ err error }
 
+func (f fakeDB) Ping(context.Context) error { return f.err }
+
+func newTestRouter() http.Handler {
+	return NewRouter(slog.New(slog.DiscardHandler), fakeDB{})
+}
+
+func TestHealth(t *testing.T) {
 	tests := []struct {
 		name       string
 		method     string
+		db         fakeDB
 		wantStatus int
+		wantBody   string
 	}{
-		{name: "GET отвечает 200", method: http.MethodGet, wantStatus: http.StatusOK},
+		{name: "БД отвечает", method: http.MethodGet, wantStatus: http.StatusOK, wantBody: `{"status":"ok"}`},
+		{
+			name:       "БД недоступна",
+			method:     http.MethodGet,
+			db:         fakeDB{err: errors.New("connection refused")},
+			wantStatus: http.StatusServiceUnavailable,
+			wantBody:   `{"status":"unavailable"}`,
+		},
 		{name: "POST не разрешён", method: http.MethodPost, wantStatus: http.StatusMethodNotAllowed},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rec := httptest.NewRecorder()
-			h.ServeHTTP(rec, httptest.NewRequest(tt.method, "/health", nil))
+			h := NewRouter(slog.New(slog.DiscardHandler), tt.db)
+			rec := serve(h, tt.method, "/health", "")
 
 			assert.Equal(t, tt.wantStatus, rec.Code)
-			if tt.wantStatus == http.StatusOK {
+			if tt.wantBody != "" {
 				assert.Equal(t, "application/json", rec.Header().Get("Content-Type"))
-				assert.JSONEq(t, `{"status":"ok"}`, rec.Body.String())
+				assert.JSONEq(t, tt.wantBody, rec.Body.String())
 			}
 		})
 	}
@@ -44,7 +62,7 @@ func TestHealth(t *testing.T) {
 // Все ручки контракта зарегистрированы и до реализации отвечают 501 с телом
 // ошибки из контракта.
 func TestContractRoutesNotImplemented(t *testing.T) {
-	h := NewRouter(slog.New(slog.DiscardHandler))
+	h := newTestRouter()
 	const pvzID = "6f1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d"
 
 	tests := []struct {
@@ -72,7 +90,7 @@ func TestContractRoutesNotImplemented(t *testing.T) {
 
 // Запрос, который не разбирается по контракту, получает 400 до вызова ручки.
 func TestBadRequest(t *testing.T) {
-	h := NewRouter(slog.New(slog.DiscardHandler))
+	h := newTestRouter()
 
 	tests := []struct {
 		name, method, path, body string
@@ -94,7 +112,7 @@ func TestBadRequest(t *testing.T) {
 }
 
 func TestDocs(t *testing.T) {
-	h := NewRouter(slog.New(slog.DiscardHandler))
+	h := newTestRouter()
 
 	t.Run("корень ведёт в Swagger UI", func(t *testing.T) {
 		rec := serve(h, http.MethodGet, "/", "")

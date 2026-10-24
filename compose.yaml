@@ -1,0 +1,22 @@
+# Только для локальной разработки: make up. Прод-конфигурация (сервисы, лимиты,
+# сети, Caddy) живёт в репозитории portfolio, в deploy/compose.yaml.
+services:
+  postgres:
+    image: postgres:16 # та же мажорная версия, что на сервере
+    environment:
+      # Учётка только для локальной БД, в проде свои пароли из .env сервера.
+      POSTGRES_USER: pvz
+      POSTGRES_PASSWORD: pvz
+      POSTGRES_DB: pvz
+    ports:
+      - "127.0.0.1:${PG_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pvz -d pvz"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+volumes:
+  postgres_data:
