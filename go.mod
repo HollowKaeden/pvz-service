@@ -3,6 +3,7 @@ module github.com/HollowKaeden/pvz-service
 go 1.27.3
 
 require (
+	github.com/Masterminds/squirrel v1.5.4
 	github.com/avito-tech/go-transaction-manager/drivers/pgxv5/v2 v2.0.5
 	github.com/avito-tech/go-transaction-manager/trm/v2 v2.0.5
 	github.com/golang-jwt/jwt/v5 v5.3.1
@@ -16,7 +17,6 @@ require (
 )
 
 require (
-	github.com/Masterminds/squirrel v1.5.4 // indirect
 	github.com/apapsch/go-jsonmerge/v2 v2.0.0 // indirect
 	github.com/brunoga/deep v1.3.1 // indirect
 	github.com/clipperhouse/uax29/v2 v2.2.0 // indirect
