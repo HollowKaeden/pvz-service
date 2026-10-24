@@ -9,4 +9,8 @@ import "errors"
 var (
 	// ErrInvalidRole — роли нет среди employee и moderator.
 	ErrInvalidRole = errors.New("недопустимая роль")
+
+	// ErrCityNotAllowed — в этом городе ПВЗ открывать нельзя: его нет в
+	// справочнике городов.
+	ErrCityNotAllowed = errors.New("город недоступен для открытия ПВЗ")
 )

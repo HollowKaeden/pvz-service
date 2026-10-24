@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
@@ -13,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -31,11 +33,33 @@ func (f fakeDB) Ping(context.Context) error { return f.err }
 // с выдачей и проверкой токенов.
 var testTokens = auth.NewTokens([]byte("test-secret-0123456789abcdef-0123"), time.Hour)
 
+// fakePVZ — PVZService для тестов HTTP-слоя: заводит ПВЗ в Москве, на
+// остальные города отвечает ошибкой бизнес-правила, на city "boom" — внутренней.
+type fakePVZ struct{}
+
+var testPVZ = domain.PVZ{
+	ID:               uuid.MustParse("0192f1a4-7b3c-7d2e-8f00-000000000001"),
+	RegistrationDate: time.Date(2026, 10, 24, 12, 4, 5, 123456000, time.UTC),
+	City:             "Москва",
+}
+
+func (fakePVZ) Create(_ context.Context, city string) (domain.PVZ, error) {
+	switch city {
+	case "Москва":
+		return testPVZ, nil
+	case "boom":
+		return domain.PVZ{}, errors.New("pq: connection to 10.0.0.5 refused")
+	default:
+		return domain.PVZ{}, fmt.Errorf("%w: %q", domain.ErrCityNotAllowed, city)
+	}
+}
+
 func newRouterWithDB(db Pinger) http.Handler {
 	return NewRouter(slog.New(slog.DiscardHandler), Deps{
 		DB:     db,
 		Tokens: testTokens,
 		Auth:   service.NewAuth(testTokens),
+		PVZ:    fakePVZ{},
 	})
 }
 
@@ -94,7 +118,6 @@ func TestContractRoutesNotImplemented(t *testing.T) {
 	}{
 		{http.MethodPost, "/register", `{"email":"a@b.ru","password":"p","role":"employee"}`, ""},
 		{http.MethodPost, "/login", `{"email":"a@b.ru","password":"p"}`, ""},
-		{http.MethodPost, "/pvz", `{"city":"Москва"}`, moderator},
 		{http.MethodGet, "/pvz?page=1&limit=10", "", employee},
 		{http.MethodGet, "/pvz", "", moderator},
 		{http.MethodPost, "/receptions", `{"pvzId":"` + pvzID + `"}`, employee},
@@ -125,8 +148,8 @@ func TestDummyLogin(t *testing.T) {
 		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &token))
 		require.NotEmpty(t, token)
 
-		// Создавать ПВЗ модератору можно (ручка пока 501), принимать товары нельзя.
-		assert.Equal(t, http.StatusNotImplemented, serve(h, http.MethodPost, "/pvz", `{"city":"Москва"}`, token).Code)
+		// Создавать ПВЗ модератору можно, принимать товары нельзя.
+		assert.Equal(t, http.StatusCreated, serve(h, http.MethodPost, "/pvz", `{"city":"Москва"}`, token).Code)
 		assert.Equal(t, http.StatusForbidden,
 			serve(h, http.MethodPost, "/receptions", `{"pvzId":"6f1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d"}`, token).Code)
 	})
@@ -146,6 +169,36 @@ func TestDummyLogin(t *testing.T) {
 			assert.Contains(t, rec.Body.String(), "недопустимая роль")
 		})
 	}
+}
+
+func TestPostPVZ(t *testing.T) {
+	h := newTestRouter()
+	moderator := tokenFor(t, domain.RoleModerator)
+
+	t.Run("ПВЗ заведён", func(t *testing.T) {
+		// id и дата из тела игнорируются: их назначает сервис.
+		rec := serve(h, http.MethodPost, "/pvz",
+			`{"city":"Москва","id":"11111111-1111-1111-1111-111111111111","registrationDate":"2000-01-01T00:00:00Z"}`,
+			moderator)
+
+		require.Equal(t, http.StatusCreated, rec.Code, rec.Body.String())
+		assert.JSONEq(t,
+			`{"id":"0192f1a4-7b3c-7d2e-8f00-000000000001","registrationDate":"2026-10-24T12:04:05.123456Z","city":"Москва"}`,
+			rec.Body.String())
+	})
+	t.Run("город не из справочника", func(t *testing.T) {
+		rec := serve(h, http.MethodPost, "/pvz", `{"city":"Томск"}`, moderator)
+
+		assert.Equal(t, http.StatusBadRequest, rec.Code)
+		assert.Contains(t, rec.Body.String(), "город недоступен для открытия ПВЗ")
+	})
+	t.Run("внутренняя ошибка не уходит клиенту", func(t *testing.T) {
+		rec := serve(h, http.MethodPost, "/pvz", `{"city":"boom"}`, moderator)
+
+		assert.Equal(t, http.StatusInternalServerError, rec.Code)
+		assertErrorBody(t, rec)
+		assert.NotContains(t, rec.Body.String(), "10.0.0.5")
+	})
 }
 
 // Запрос, который не разбирается по контракту, получает 400 до вызова ручки.

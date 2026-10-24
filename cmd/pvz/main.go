@@ -112,11 +112,17 @@ func serve(ctx context.Context, cfg config.Config, log *slog.Logger) error {
 		}
 	}
 
+	db := postgres.NewDB(pool)
+	pvzService, err := service.NewPVZ(ctx, postgres.NewPVZRepository(db), postgres.NewCityRepository(db))
+	if err != nil {
+		return err
+	}
 	tokens := auth.NewTokens(cfg.JWTSecret, tokenTTL)
 	router := httptransport.NewRouter(log, httptransport.Deps{
 		DB:     pool,
 		Tokens: tokens,
 		Auth:   service.NewAuth(tokens),
+		PVZ:    pvzService,
 	})
 
 	httpSrv := &http.Server{

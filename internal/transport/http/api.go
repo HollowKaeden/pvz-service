@@ -12,6 +12,11 @@ type AuthService interface {
 	DummyLogin(ctx context.Context, role domain.Role) (string, error)
 }
 
+// PVZService — заведение ПВЗ.
+type PVZService interface {
+	Create(ctx context.Context, city string) (domain.PVZ, error)
+}
+
 // API реализует ручки контракта (oapi.StrictServerInterface). Сгенерированный
 // код разбирает запрос в DTO и сериализует ответ, здесь остаётся маппинг
 // DTO ↔ domain и вызов сервисов.
@@ -19,6 +24,7 @@ type AuthService interface {
 // Ручки, логика которых ещё не написана, отвечают 501.
 type API struct {
 	auth AuthService
+	pvz  PVZService
 }
 
 var _ oapi.StrictServerInterface = API{}
@@ -44,9 +50,14 @@ func (API) PostLogin(context.Context, oapi.PostLoginRequestObject) (oapi.PostLog
 	return nil, errNotImplemented
 }
 
-// PostPVZ — POST /pvz: заведение ПВЗ (moderator).
-func (API) PostPVZ(context.Context, oapi.PostPVZRequestObject) (oapi.PostPVZResponseObject, error) {
-	return nil, errNotImplemented
+// PostPVZ — POST /pvz: заведение ПВЗ (moderator). id и registrationDate из
+// тела не используются: их назначает сервис.
+func (a API) PostPVZ(ctx context.Context, req oapi.PostPVZRequestObject) (oapi.PostPVZResponseObject, error) {
+	pvz, err := a.pvz.Create(ctx, string(req.Body.City))
+	if err != nil {
+		return nil, err
+	}
+	return oapi.PostPVZ201JSONResponse(toPVZ(pvz)), nil
 }
 
 // GetPVZ — GET /pvz: ПВЗ с приёмками и товарами, фильтр по дате и пагинация.
@@ -76,4 +87,13 @@ func (API) PostPVZPVZIDDeleteLastProduct(
 	context.Context, oapi.PostPVZPVZIDDeleteLastProductRequestObject,
 ) (oapi.PostPVZPVZIDDeleteLastProductResponseObject, error) {
 	return nil, errNotImplemented
+}
+
+// toPVZ переводит ПВЗ из домена в DTO контракта.
+func toPVZ(p domain.PVZ) oapi.PVZ {
+	return oapi.PVZ{
+		ID:               &p.ID,
+		RegistrationDate: &p.RegistrationDate,
+		City:             oapi.PVZCity(p.City),
+	}
 }

@@ -46,7 +46,8 @@ func handlerError(log *slog.Logger) func(http.ResponseWriter, *http.Request, err
 // ошибки показываются клиенту с исходным текстом.
 func domainStatus(err error) (int, bool) {
 	switch {
-	case errors.Is(err, domain.ErrInvalidRole):
+	case errors.Is(err, domain.ErrInvalidRole),
+		errors.Is(err, domain.ErrCityNotAllowed):
 		return http.StatusBadRequest, true
 	default:
 		return 0, false

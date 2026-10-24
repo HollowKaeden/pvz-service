@@ -14,6 +14,7 @@ type Deps struct {
 	DB     Pinger
 	Tokens TokenParser
 	Auth   AuthService
+	PVZ    PVZService
 }
 
 // NewRouter собирает все HTTP-маршруты сервиса: ручки контракта и служебные
@@ -27,7 +28,7 @@ func NewRouter(log *slog.Logger, deps Deps) http.Handler {
 	mux.HandleFunc("GET /docs/{$}", swaggerUI)
 	mux.HandleFunc("GET /docs/openapi.yaml", openAPISpec)
 
-	strict := oapi.NewStrictHandlerWithOptions(API{auth: deps.Auth}, nil, oapi.StrictHTTPServerOptions{
+	strict := oapi.NewStrictHandlerWithOptions(API{auth: deps.Auth, pvz: deps.PVZ}, nil, oapi.StrictHTTPServerOptions{
 		RequestErrorHandlerFunc:  badRequest,
 		ResponseErrorHandlerFunc: handlerError(log),
 	})

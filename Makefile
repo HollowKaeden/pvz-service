@@ -23,8 +23,9 @@ run: ## запустить pvz локально (настройки из .env, �
 migrate: ## применить миграции БД
 	go run ./cmd/pvz migrate
 
-generate: ## кодогенерация
+generate: ## кодогенерация: HTTP-слой (oapi-codegen) и моки (mockery)
 	go generate ./...
+	go tool mockery
 
 lint: ## golangci-lint (формат и линтеры)
 	golangci-lint run
