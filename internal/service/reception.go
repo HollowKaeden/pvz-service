@@ -96,19 +96,13 @@ func (s *Reception) Open(ctx context.Context, pvzID uuid.UUID) (domain.Reception
 // Close закрывает открытую приёмку ПВЗ. Приёмка блокируется до конца
 // транзакции, поэтому закрытие не пересечётся с добавлением или удалением
 // товара в ней.
-//
-// Если открытой приёмки нет, сервис уточняет, есть ли вообще такой ПВЗ:
-// клиенту это разные ответы. Лишний запрос делается только в этом случае.
 func (s *Reception) Close(ctx context.Context, pvzID uuid.UUID) (domain.Reception, error) {
 	var rec domain.Reception
 	err := s.tx.Do(ctx, func(ctx context.Context) error {
 		var err error
-		rec, err = s.receptions.LockOpen(ctx, pvzID)
-		if errors.Is(err, domain.ErrNoOpenReception) {
-			return s.noOpenReception(ctx, pvzID)
-		}
+		rec, err = lockOpenReception(ctx, s.receptions, s.pvz, pvzID)
 		if err != nil {
-			return fmt.Errorf("поиск открытой приёмки: %w", err)
+			return err
 		}
 
 		if err := s.receptions.SetStatus(ctx, rec.ID, domain.ReceptionClosed); err != nil {
@@ -123,15 +117,27 @@ func (s *Reception) Close(ctx context.Context, pvzID uuid.UUID) (domain.Receptio
 	return rec, nil
 }
 
-// noOpenReception — ответ на «открытой приёмки нет»: если нет самого ПВЗ,
-// клиент узнает именно об этом.
-func (s *Reception) noOpenReception(ctx context.Context, pvzID uuid.UUID) error {
-	exists, err := s.pvz.Exists(ctx, pvzID)
+// lockOpenReception блокирует открытую приёмку ПВЗ до конца транзакции. Общий
+// первый шаг закрытия приёмки, добавления и удаления товара.
+//
+// Если открытой приёмки нет, уточняет, есть ли вообще такой ПВЗ: клиенту это
+// разные ответы. Лишний запрос делается только в этом случае.
+func lockOpenReception(
+	ctx context.Context, receptions ReceptionRepository, pvz PVZRepository, pvzID uuid.UUID,
+) (domain.Reception, error) {
+	rec, err := receptions.LockOpen(ctx, pvzID)
+	if errors.Is(err, domain.ErrNoOpenReception) {
+		exists, err := pvz.Exists(ctx, pvzID)
+		if err != nil {
+			return domain.Reception{}, fmt.Errorf("проверка ПВЗ: %w", err)
+		}
+		if !exists {
+			return domain.Reception{}, domain.ErrPVZNotFound
+		}
+		return domain.Reception{}, domain.ErrNoOpenReception
+	}
 	if err != nil {
-		return fmt.Errorf("проверка ПВЗ: %w", err)
+		return domain.Reception{}, fmt.Errorf("поиск открытой приёмки: %w", err)
 	}
-	if !exists {
-		return domain.ErrPVZNotFound
-	}
-	return domain.ErrNoOpenReception
+	return rec, nil
 }

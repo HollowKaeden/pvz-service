@@ -95,6 +95,39 @@ func (fakeReceptions) Close(_ context.Context, pvzID uuid.UUID) (domain.Receptio
 	}
 }
 
+// fakeProducts — ProductService для тестов HTTP-слоя: в pvzWithReception есть
+// открытая приёмка с товарами, у pvzEmpty открытой приёмки нет.
+type fakeProducts struct{}
+
+func (fakeProducts) Add(_ context.Context, pvzID uuid.UUID, productType string) (domain.Product, error) {
+	switch {
+	case productType != "обувь":
+		return domain.Product{}, fmt.Errorf("%w: %q", domain.ErrProductTypeNotAllowed, productType)
+	case pvzID == pvzWithReception:
+		return domain.Product{
+			ID:          uuid.MustParse("0192f1a4-7b3c-7d2e-8f00-0000000000b1"),
+			ReceptionID: uuid.MustParse("0192f1a4-7b3c-7d2e-8f00-0000000000a1"),
+			DateTime:    time.Date(2026, 10, 24, 12, 4, 5, 123456000, time.UTC),
+			Type:        productType,
+		}, nil
+	case pvzID == pvzEmpty:
+		return domain.Product{}, domain.ErrNoOpenReception
+	default:
+		return domain.Product{}, domain.ErrPVZNotFound
+	}
+}
+
+func (fakeProducts) DeleteLast(_ context.Context, pvzID uuid.UUID) error {
+	switch pvzID {
+	case pvzWithReception:
+		return nil
+	case pvzEmpty:
+		return domain.ErrNoProductsToDelete
+	default:
+		return domain.ErrPVZNotFound
+	}
+}
+
 func newRouterWithDB(db Pinger) http.Handler {
 	return NewRouter(slog.New(slog.DiscardHandler), Deps{
 		DB:         db,
@@ -102,6 +135,7 @@ func newRouterWithDB(db Pinger) http.Handler {
 		Auth:       service.NewAuth(testTokens),
 		PVZ:        fakePVZ{},
 		Receptions: fakeReceptions{},
+		Products:   fakeProducts{},
 	})
 }
 
@@ -152,7 +186,6 @@ func TestHealth(t *testing.T) {
 // контракта, если у клиента подходящая роль.
 func TestContractRoutesNotImplemented(t *testing.T) {
 	h := newTestRouter()
-	const pvzID = "6f1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d"
 	employee, moderator := tokenFor(t, domain.RoleEmployee), tokenFor(t, domain.RoleModerator)
 
 	tests := []struct {
@@ -162,8 +195,6 @@ func TestContractRoutesNotImplemented(t *testing.T) {
 		{http.MethodPost, "/login", `{"email":"a@b.ru","password":"p"}`, ""},
 		{http.MethodGet, "/pvz?page=1&limit=10", "", employee},
 		{http.MethodGet, "/pvz", "", moderator},
-		{http.MethodPost, "/products", `{"type":"обувь","pvzId":"` + pvzID + `"}`, employee},
-		{http.MethodPost, "/pvz/" + pvzID + "/delete_last_product", "", employee},
 	}
 	for _, tt := range tests {
 		t.Run(tt.method+" "+tt.path, func(t *testing.T) {
@@ -302,6 +333,69 @@ func TestReceptions(t *testing.T) {
 			serve(h, http.MethodPost, "/receptions", openBody(pvzEmpty), moderator).Code)
 		assert.Equal(t, http.StatusForbidden,
 			serve(h, http.MethodPost, closePath(pvzWithReception), "", moderator).Code)
+	})
+}
+
+func TestProducts(t *testing.T) {
+	h := newTestRouter()
+	employee, moderator := tokenFor(t, domain.RoleEmployee), tokenFor(t, domain.RoleModerator)
+	addBody := func(id uuid.UUID, productType string) string {
+		return `{"pvzId":"` + id.String() + `","type":"` + productType + `"}`
+	}
+	deletePath := func(id uuid.UUID) string { return "/pvz/" + id.String() + "/delete_last_product" }
+
+	t.Run("товар добавлен", func(t *testing.T) {
+		rec := serve(h, http.MethodPost, "/products", addBody(pvzWithReception, "обувь"), employee)
+
+		require.Equal(t, http.StatusCreated, rec.Code, rec.Body.String())
+		assert.JSONEq(t, `{
+			"id":"0192f1a4-7b3c-7d2e-8f00-0000000000b1",
+			"dateTime":"2026-10-24T12:04:05.123456Z",
+			"receptionId":"0192f1a4-7b3c-7d2e-8f00-0000000000a1",
+			"type":"обувь"
+		}`, rec.Body.String())
+	})
+	t.Run("товар удалён", func(t *testing.T) {
+		rec := serve(h, http.MethodPost, deletePath(pvzWithReception), "", employee)
+
+		assert.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+		assert.Empty(t, rec.Body.String(), "в контракте у ответа 200 нет тела")
+	})
+
+	errorTests := []struct {
+		name, method, path, body string
+		wantStatus               int
+		wantMsg                  string
+	}{
+		// Генератор не проверяет enum: недопустимый тип доходит до сервиса,
+		// и тот отвечает понятной ошибкой со списком типов.
+		{"тип не из справочника", http.MethodPost, "/products", addBody(pvzWithReception, "мебель"),
+			http.StatusBadRequest, "недопустимый тип товара"},
+		{"добавление без открытой приёмки", http.MethodPost, "/products", addBody(pvzEmpty, "обувь"),
+			http.StatusBadRequest, "на ПВЗ нет открытой приёмки"},
+		{"удалять нечего", http.MethodPost, deletePath(pvzEmpty), "",
+			http.StatusBadRequest, "в приёмке нет товаров для удаления"},
+		{"добавление на несуществующем ПВЗ", http.MethodPost, "/products", addBody(pvzMissing, "обувь"),
+			http.StatusNotFound, "ПВЗ не найден"},
+		{"удаление на несуществующем ПВЗ", http.MethodPost, deletePath(pvzMissing), "",
+			http.StatusNotFound, "ПВЗ не найден"},
+	}
+	for _, tt := range errorTests {
+		t.Run(tt.name, func(t *testing.T) {
+			rec := serve(h, tt.method, tt.path, tt.body, employee)
+
+			assert.Equal(t, tt.wantStatus, rec.Code)
+			assertErrorBody(t, rec)
+			assert.Contains(t, rec.Body.String(), tt.wantMsg)
+		})
+	}
+
+	// Товарами занимается только сотрудник ПВЗ.
+	t.Run("модератору нельзя", func(t *testing.T) {
+		assert.Equal(t, http.StatusForbidden,
+			serve(h, http.MethodPost, "/products", addBody(pvzWithReception, "обувь"), moderator).Code)
+		assert.Equal(t, http.StatusForbidden,
+			serve(h, http.MethodPost, deletePath(pvzWithReception), "", moderator).Code)
 	})
 }
 

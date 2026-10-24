@@ -25,6 +25,12 @@ type ReceptionService interface {
 	Close(ctx context.Context, pvzID uuid.UUID) (domain.Reception, error)
 }
 
+// ProductService — товары в открытой приёмке.
+type ProductService interface {
+	Add(ctx context.Context, pvzID uuid.UUID, productType string) (domain.Product, error)
+	DeleteLast(ctx context.Context, pvzID uuid.UUID) error
+}
+
 // API реализует ручки контракта (oapi.StrictServerInterface). Сгенерированный
 // код разбирает запрос в DTO и сериализует ответ, здесь остаётся маппинг
 // DTO ↔ domain и вызов сервисов.
@@ -34,6 +40,7 @@ type API struct {
 	auth       AuthService
 	pvz        PVZService
 	receptions ReceptionService
+	products   ProductService
 }
 
 var _ oapi.StrictServerInterface = API{}
@@ -97,15 +104,22 @@ func (a API) PostPVZPVZIDCloseLastReception(
 }
 
 // PostProducts — POST /products: товар в открытую приёмку (employee).
-func (API) PostProducts(context.Context, oapi.PostProductsRequestObject) (oapi.PostProductsResponseObject, error) {
-	return nil, errNotImplemented
+func (a API) PostProducts(ctx context.Context, req oapi.PostProductsRequestObject) (oapi.PostProductsResponseObject, error) {
+	p, err := a.products.Add(ctx, req.Body.PVZID, string(req.Body.Type))
+	if err != nil {
+		return nil, err
+	}
+	return oapi.PostProducts201JSONResponse(toProduct(p)), nil
 }
 
 // PostPVZPVZIDDeleteLastProduct — POST /pvz/{pvzId}/delete_last_product: удаление последнего товара, LIFO (employee).
-func (API) PostPVZPVZIDDeleteLastProduct(
-	context.Context, oapi.PostPVZPVZIDDeleteLastProductRequestObject,
+func (a API) PostPVZPVZIDDeleteLastProduct(
+	ctx context.Context, req oapi.PostPVZPVZIDDeleteLastProductRequestObject,
 ) (oapi.PostPVZPVZIDDeleteLastProductResponseObject, error) {
-	return nil, errNotImplemented
+	if err := a.products.DeleteLast(ctx, req.PVZID); err != nil {
+		return nil, err
+	}
+	return oapi.PostPVZPVZIDDeleteLastProduct200Response{}, nil
 }
 
 // toPVZ переводит ПВЗ из домена в DTO контракта.
@@ -124,5 +138,15 @@ func toReception(r domain.Reception) oapi.Reception {
 		DateTime: r.DateTime,
 		PVZID:    r.PVZID,
 		Status:   oapi.ReceptionStatus(r.Status),
+	}
+}
+
+// toProduct переводит товар из домена в DTO контракта.
+func toProduct(p domain.Product) oapi.Product {
+	return oapi.Product{
+		ID:          &p.ID,
+		DateTime:    &p.DateTime,
+		ReceptionID: p.ReceptionID,
+		Type:        oapi.ProductType(p.Type),
 	}
 }

@@ -24,4 +24,10 @@ var (
 	// ErrNoOpenReception — на ПВЗ нет открытой приёмки: её не открывали или
 	// уже закрыли.
 	ErrNoOpenReception = errors.New("на ПВЗ нет открытой приёмки")
+
+	// ErrProductTypeNotAllowed — такого типа товара нет в справочнике.
+	ErrProductTypeNotAllowed = errors.New("недопустимый тип товара")
+
+	// ErrNoProductsToDelete — в открытой приёмке нет товаров, удалять нечего.
+	ErrNoProductsToDelete = errors.New("в приёмке нет товаров для удаления")
 )

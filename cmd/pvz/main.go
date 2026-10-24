@@ -120,7 +120,13 @@ func serve(ctx context.Context, cfg config.Config, log *slog.Logger) error {
 		return fmt.Errorf("менеджер транзакций: %w", err)
 	}
 	pvzRepo := postgres.NewPVZRepository(db)
+	receptionRepo := postgres.NewReceptionRepository(db)
 	pvzService, err := service.NewPVZ(ctx, pvzRepo, postgres.NewCityRepository(db))
+	if err != nil {
+		return err
+	}
+	productService, err := service.NewProduct(ctx, txManager, pvzRepo, receptionRepo,
+		postgres.NewProductRepository(db), postgres.NewProductTypeRepository(db))
 	if err != nil {
 		return err
 	}
@@ -130,7 +136,8 @@ func serve(ctx context.Context, cfg config.Config, log *slog.Logger) error {
 		Tokens:     tokens,
 		Auth:       service.NewAuth(tokens),
 		PVZ:        pvzService,
-		Receptions: service.NewReception(txManager, pvzRepo, postgres.NewReceptionRepository(db)),
+		Receptions: service.NewReception(txManager, pvzRepo, receptionRepo),
+		Products:   productService,
 	})
 
 	httpSrv := &http.Server{
