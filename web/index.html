@@ -6,7 +6,6 @@
   <title>ПВЗ-сервис: приёмка товаров</title>
   <meta name="description" content="Демо сервиса приёмки товаров на пунктах выдачи заказов: Go, PostgreSQL. Решение тестового задания Авито для бэкенд-стажёров.">
   <link rel="icon" href="/assets/favicon.svg" type="image/svg+xml">
-  <link rel="preload" href="/assets/fonts/source-code-pro-cyrillic-400-normal.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="/assets/style.css">
   <script type="module" src="/assets/app.js"></script>
 </head>
@@ -21,11 +20,11 @@
       <div class="hero-text">
         <h1 id="title" class="title">ПВЗ-сервис</h1>
         <p>Приёмка товаров на пунктах выдачи заказов: сотрудник открывает приёмку, добавляет товары и закрывает её. Решение тестового задания Авито для бэкенд-стажёров на Go и PostgreSQL.</p>
-        <p class="muted">Каждое действие здесь — настоящий запрос к API, его видно в журнале внизу. Данные демо сбрасываются каждую ночь.</p>
+        <p class="muted">Каждое действие здесь делает настоящий запрос к API, его видно в журнале запросов. Данные демо сбрасываются каждую ночь.</p>
       </div>
     </section>
 
-    <section class="card" aria-labelledby="role-title">
+    <section class="card role-card" aria-labelledby="role-title">
       <h2 id="role-title" class="section-title">Роль</h2>
       <p class="muted">Токен выдаёт <code>POST /dummyLogin</code>: пароль не нужен, роль выбирается кнопкой.</p>
       <div class="buttons" id="roles">
@@ -35,12 +34,12 @@
       <div id="role-state" class="role-state" role="status"></div>
     </section>
 
-    <section class="card" aria-labelledby="pvz-title">
+    <section class="card pvz-card" aria-labelledby="pvz-title">
       <h2 id="pvz-title" class="section-title">ПВЗ</h2>
       <div id="pvz"></div>
     </section>
 
-    <section class="card" aria-labelledby="log-title">
+    <section class="card log-card" aria-labelledby="log-title">
       <div class="section-head">
         <h2 id="log-title" class="section-title">Журнал запросов</h2>
         <button type="button" class="text-button" id="log-clear">Очистить</button>

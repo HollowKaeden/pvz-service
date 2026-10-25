@@ -425,7 +425,8 @@ function renderActions(id, open) {
       'div',
       { class: 'buttons' },
       button('Удалить последний', 'deleteLast', null, false, open.products.length === 0),
-      button('Закрыть приёмку', 'close'),
+      // Пустую приёмку сервис закрыть не даст (400), кнопка неактивна заранее.
+      button('Закрыть приёмку', 'close', null, false, open.products.length === 0),
     ),
   );
 }
@@ -446,7 +447,11 @@ function renderReception({ reception, products }) {
           'ol',
           { class: 'products' },
           products.map((p, i) =>
-            h('li', { class: 'tag', title: `добавлен ${formatDate(p.dateTime)}` }, `${i + 1}. ${p.type}`),
+            h(
+              'li',
+              { class: 'tag', 'data-type': p.type, title: `добавлен ${formatDate(p.dateTime)}` },
+              `${i + 1}. ${p.type}`,
+            ),
           ),
         )
       : null,
@@ -480,7 +485,7 @@ function logEntry(entry) {
           { class: 'log-line' },
           h('span', { class: 'muted' }, formatTime(entry.at)),
           h('span', { class: 'log-request' }, `${entry.method} ${decodeURIComponent(entry.path)}`),
-          h('span', { class: failed ? 'status failed' : 'status' }, entry.status || '—'),
+          h('span', { class: failed ? 'status failed' : 'status ok' }, entry.status || 'нет'),
           h('span', { class: 'muted' }, `${entry.ms} мс`),
         ),
         h(
@@ -507,6 +512,7 @@ function logEntry(entry) {
 // --- старт ----------------------------------------------------------------
 
 function init() {
+
   // Ссылка на портфолио: демо живёт на поддомене pvz. основного сайта.
   // Локально (localhost) ссылки нет.
   const host = location.hostname;

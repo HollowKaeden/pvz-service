@@ -567,7 +567,6 @@ func TestFrontend(t *testing.T) {
 		{"/assets/dom.js", "javascript"},
 		{"/assets/style.css", "text/css"},
 		{"/assets/favicon.svg", "image/svg+xml"},
-		{"/assets/fonts/source-code-pro-cyrillic-400-normal.woff2", "font/woff2"},
 	}
 	for _, f := range files {
 		t.Run(f.path, func(t *testing.T) {
