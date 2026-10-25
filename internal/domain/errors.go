@@ -25,6 +25,9 @@ var (
 	// уже закрыли.
 	ErrNoOpenReception = errors.New("на ПВЗ нет открытой приёмки")
 
+	// ErrReceptionEmpty — в открытой приёмке нет товаров, закрывать её нельзя.
+	ErrReceptionEmpty = errors.New("нельзя закрыть приёмку без товаров")
+
 	// ErrProductTypeNotAllowed — такого типа товара нет в справочнике.
 	ErrProductTypeNotAllowed = errors.New("недопустимый тип товара")
 

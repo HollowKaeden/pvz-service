@@ -115,6 +115,17 @@ func (r *ReceptionRepository) ListByPVZ(
 	return list, nil
 }
 
+// HasProducts сообщает, есть ли в приёмке хотя бы один товар. Ищется по
+// индексу (reception_id, seq).
+func (r *ReceptionRepository) HasProducts(ctx context.Context, id uuid.UUID) (bool, error) {
+	var has bool
+	err := r.db.conn(ctx).QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM products WHERE reception_id = $1)`, id).Scan(&has)
+	if err != nil {
+		return false, fmt.Errorf("reception has products: %w", err)
+	}
+	return has, nil
+}
+
 // SetStatus меняет статус приёмки.
 func (r *ReceptionRepository) SetStatus(ctx context.Context, id uuid.UUID, status domain.ReceptionStatus) error {
 	tag, err := r.db.conn(ctx).Exec(ctx, `

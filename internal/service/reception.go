@@ -18,6 +18,8 @@ type ReceptionRepository interface {
 	// возвращает domain.ErrNoOpenReception.
 	LockOpen(ctx context.Context, pvzID uuid.UUID) (domain.Reception, error)
 	SetStatus(ctx context.Context, id uuid.UUID, status domain.ReceptionStatus) error
+	// HasProducts сообщает, есть ли в приёмке хотя бы один товар.
+	HasProducts(ctx context.Context, id uuid.UUID) (bool, error)
 	// ListByPVZ возвращает приёмки этих ПВЗ, новые сверху. Если период задан,
 	// только приёмки из периода.
 	ListByPVZ(ctx context.Context, pvzIDs []uuid.UUID, period domain.Period) ([]domain.Reception, error)
@@ -96,9 +98,10 @@ func (s *Reception) Open(ctx context.Context, pvzID uuid.UUID) (domain.Reception
 	return rec, nil
 }
 
-// Close закрывает открытую приёмку ПВЗ. Приёмка блокируется до конца
+// Close закрывает открытую приёмку ПВЗ. Пустую приёмку закрыть нельзя: в
+// задании приёмка — это приехавшие товары. Приёмка блокируется до конца
 // транзакции, поэтому закрытие не пересечётся с добавлением или удалением
-// товара в ней.
+// товара в ней, и проверка «товары есть» не устареет до смены статуса.
 func (s *Reception) Close(ctx context.Context, pvzID uuid.UUID) (domain.Reception, error) {
 	var rec domain.Reception
 	err := s.tx.Do(ctx, func(ctx context.Context) error {
@@ -106,6 +109,14 @@ func (s *Reception) Close(ctx context.Context, pvzID uuid.UUID) (domain.Receptio
 		rec, err = lockOpenReception(ctx, s.receptions, s.pvz, pvzID)
 		if err != nil {
 			return err
+		}
+
+		hasProducts, err := s.receptions.HasProducts(ctx, rec.ID)
+		if err != nil {
+			return fmt.Errorf("проверка товаров приёмки: %w", err)
+		}
+		if !hasProducts {
+			return domain.ErrReceptionEmpty
 		}
 
 		if err := s.receptions.SetStatus(ctx, rec.ID, domain.ReceptionClosed); err != nil {

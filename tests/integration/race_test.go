@@ -122,12 +122,15 @@ func TestDeleteLastProductRace(t *testing.T) {
 
 // Одновременные добавления и закрытие: каждый товар либо попал в приёмку до
 // её закрытия, либо получил отказ. В закрытой приёмке ровно столько товаров,
-// сколько было успешных ответов.
+// сколько было успешных ответов. Один товар добавлен заранее: пустую приёмку
+// закрыть нельзя, а закрытие может успеть раньше всех добавлений.
 func TestAddProductsWhileClosing(t *testing.T) {
 	resetDB(t)
 	moderator, employee := login(t, domain.RoleModerator), login(t, domain.RoleEmployee)
 	pvzID := createPVZ(t, moderator, "Москва")
 	mustCall(t, http.StatusCreated, http.MethodPost, "/receptions", employee, map[string]any{"pvzId": pvzID}, nil)
+	mustCall(t, http.StatusCreated, http.MethodPost, "/products", employee,
+		map[string]any{"pvzId": pvzID, "type": "обувь"}, nil)
 
 	// Закрытие в середине пачки добавлений.
 	reqs := repeat(20, request{http.MethodPost, "/products", employee, map[string]any{"pvzId": pvzID, "type": "обувь"}})
@@ -135,7 +138,7 @@ func TestAddProductsWhileClosing(t *testing.T) {
 	statuses := parallel(t, reqs)
 
 	assert.Equal(t, http.StatusOK, statuses[10], "закрытие прошло")
-	added := 0
+	added := 1
 	for i, s := range statuses {
 		if i == 10 {
 			continue

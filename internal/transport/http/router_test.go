@@ -91,6 +91,7 @@ var (
 	pvzWithReception = uuid.MustParse("6f1b2c3d-4e5f-4a6b-8c7d-9e0f1a2b3c4d") // открыть нельзя, закрыть можно
 	pvzEmpty         = uuid.MustParse("6f1b2c3d-4e5f-4a6b-8c7d-000000000002") // открыть можно, закрыть нечего
 	pvzMissing       = uuid.MustParse("6f1b2c3d-4e5f-4a6b-8c7d-000000000003") // такого ПВЗ нет
+	pvzNoProducts    = uuid.MustParse("6f1b2c3d-4e5f-4a6b-8c7d-000000000004") // приёмка открыта, но пустая
 )
 
 func testReception(pvzID uuid.UUID, status domain.ReceptionStatus) domain.Reception {
@@ -119,6 +120,8 @@ func (fakeReceptions) Close(_ context.Context, pvzID uuid.UUID) (domain.Receptio
 		return testReception(pvzID, domain.ReceptionClosed), nil
 	case pvzEmpty:
 		return domain.Reception{}, domain.ErrNoOpenReception
+	case pvzNoProducts:
+		return domain.Reception{}, domain.ErrReceptionEmpty
 	default:
 		return domain.Reception{}, domain.ErrPVZNotFound
 	}
@@ -338,6 +341,8 @@ func TestReceptions(t *testing.T) {
 			http.StatusBadRequest, "на ПВЗ уже есть незакрытая приёмка"},
 		{"закрывать нечего", http.MethodPost, closePath(pvzEmpty), "",
 			http.StatusBadRequest, "на ПВЗ нет открытой приёмки"},
+		{"закрытие пустой приёмки", http.MethodPost, closePath(pvzNoProducts), "",
+			http.StatusBadRequest, "нельзя закрыть приёмку без товаров"},
 		{"открытие на несуществующем ПВЗ", http.MethodPost, "/receptions", openBody(pvzMissing),
 			http.StatusNotFound, "ПВЗ не найден"},
 		{"закрытие на несуществующем ПВЗ", http.MethodPost, closePath(pvzMissing), "",

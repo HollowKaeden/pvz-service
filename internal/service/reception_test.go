@@ -161,12 +161,21 @@ func TestReceptionClose(t *testing.T) {
 		callsExists bool
 		exists      bool
 		existsErr   error
+		callsHas    bool
+		empty       bool
+		hasErr      error
 		callsSet    bool
 		setErr      error
 		wantErr     error
 		wantErrMsg  string
 	}{
-		{name: "приёмка закрыта", callsSet: true},
+		{name: "приёмка закрыта", callsHas: true, callsSet: true},
+		{
+			name:     "в приёмке нет товаров",
+			callsHas: true, empty: true,
+			wantErr: domain.ErrReceptionEmpty, wantErrMsg: "нельзя закрыть приёмку без товаров",
+		},
+		{name: "ошибка БД при проверке товаров", callsHas: true, hasErr: errDB, wantErr: errDB},
 		{
 			// Сюда же попадает повторное закрытие: закрытая приёмка не открытая.
 			name:    "нет открытой приёмки",
@@ -185,7 +194,7 @@ func TestReceptionClose(t *testing.T) {
 		},
 		{name: "транзакция не открылась", txErr: errDB, wantErr: errDB},
 		{name: "ошибка БД при поиске открытой приёмки", findErr: errDB, wantErr: errDB},
-		{name: "ошибка БД при смене статуса", callsSet: true, setErr: errDB, wantErr: errDB},
+		{name: "ошибка БД при смене статуса", callsHas: true, callsSet: true, setErr: errDB, wantErr: errDB},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -200,6 +209,9 @@ func TestReceptionClose(t *testing.T) {
 			pvz := newMockPVZRepository(t)
 			if tt.callsExists {
 				pvz.EXPECT().Exists(inTx, testPVZID).Return(tt.exists, tt.existsErr)
+			}
+			if tt.callsHas {
+				receptions.EXPECT().HasProducts(inTx, testReceptionID).Return(!tt.empty && tt.hasErr == nil, tt.hasErr)
 			}
 			if tt.callsSet {
 				receptions.EXPECT().SetStatus(inTx, testReceptionID, domain.ReceptionClosed).Return(tt.setErr)

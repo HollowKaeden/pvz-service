@@ -97,6 +97,38 @@ func TestDeleteLastProductLIFO(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, status)
 }
 
+// Пустую приёмку закрыть нельзя, в том числе если все товары из неё удалили.
+// Приёмка при этом остаётся открытой.
+func TestCloseEmptyReception(t *testing.T) {
+	resetDB(t)
+	moderator, employee := login(t, domain.RoleModerator), login(t, domain.RoleEmployee)
+	pvzID := createPVZ(t, moderator, "Москва")
+	closePath := "/pvz/" + pvzID.String() + "/close_last_reception"
+	assertCloseRefused := func(t *testing.T) {
+		t.Helper()
+		status, body := call(t, http.MethodPost, closePath, employee, nil)
+		assert.Equal(t, http.StatusBadRequest, status)
+		assert.Contains(t, string(body), "нельзя закрыть приёмку без товаров")
+	}
+
+	mustCall(t, http.StatusCreated, http.MethodPost, "/receptions", employee, map[string]any{"pvzId": pvzID}, nil)
+	assertCloseRefused(t)
+
+	mustCall(t, http.StatusCreated, http.MethodPost, "/products", employee,
+		map[string]any{"pvzId": pvzID, "type": "обувь"}, nil)
+	mustCall(t, http.StatusOK, http.MethodPost, "/pvz/"+pvzID.String()+"/delete_last_product", employee, nil, nil)
+	assertCloseRefused(t)
+
+	list := listPVZ(t, employee, "")
+	require.Len(t, list, 1)
+	require.Len(t, *list[0].Receptions, 1)
+	assert.Equal(t, oapi.ReceptionStatusInProgress, (*list[0].Receptions)[0].Reception.Status)
+
+	mustCall(t, http.StatusCreated, http.MethodPost, "/products", employee,
+		map[string]any{"pvzId": pvzID, "type": "обувь"}, nil)
+	mustCall(t, http.StatusOK, http.MethodPost, closePath, employee, nil, nil)
+}
+
 // productTypesInDB возвращает типы товаров всех приёмок ПВЗ в порядке
 // добавления, прямо из базы.
 func productTypesInDB(t *testing.T, pvzID uuid.UUID) []string {
