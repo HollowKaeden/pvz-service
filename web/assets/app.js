@@ -568,6 +568,33 @@ function logEntry(entry) {
   while (log.children.length > LOG_LIMIT) log.lastElementChild.remove();
 }
 
+// --- gRPC -----------------------------------------------------------------
+
+// Команда grpcurl для GetPVZList. На демо gRPC идёт через тот же адрес, что и
+// страница (Caddy отдаёт его pvz по HTTP/2), локально — на порт 3000 без TLS.
+// Reflection включён, поэтому proto-файл grpcurl не нужен.
+function showGrpcurl() {
+  const method = 'pvz.v1.PVZService/GetPVZList';
+  const command =
+    location.protocol === 'https:'
+      ? `grpcurl ${location.hostname}:443 ${method}`
+      : `grpcurl -plaintext ${location.hostname}:3000 ${method}`;
+  $('grpcurl').textContent = command;
+
+  const copy = $('grpcurl-copy');
+  copy.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(command);
+      copy.textContent = 'Скопировано';
+    } catch {
+      copy.textContent = 'Не удалось скопировать';
+    }
+    setTimeout(() => {
+      copy.textContent = 'Скопировать';
+    }, 2000);
+  });
+}
+
 // --- старт ----------------------------------------------------------------
 
 function init() {
@@ -581,6 +608,7 @@ function init() {
     link.hidden = false;
   }
 
+  showGrpcurl();
   onRequest(logEntry);
   $('log-clear').addEventListener('click', () => {
     $('log').replaceChildren();

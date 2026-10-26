@@ -21,6 +21,13 @@
         <h1 id="title" class="title">ПВЗ-сервис</h1>
         <p>Приёмка товаров на пунктах выдачи заказов: сотрудник открывает приёмку, добавляет товары и закрывает её. Решение тестового задания Авито для бэкенд-стажёров на Go и PostgreSQL.</p>
         <p class="muted">Каждое действие здесь делает настоящий запрос к API, его видно в журнале запросов. Данные демо сбрасываются каждую ночь.</p>
+        <div class="grpc">
+          <p class="muted">Есть и gRPC: метод <code>GetPVZList</code> отдаёт все ПВЗ без токена. Из браузера его не вызвать, вот команда для <a href="https://github.com/fullstorydev/grpcurl">grpcurl</a>:</p>
+          <div class="command">
+            <code id="grpcurl"></code>
+            <button type="button" class="text-button" id="grpcurl-copy">Скопировать</button>
+          </div>
+        </div>
       </div>
     </section>
 

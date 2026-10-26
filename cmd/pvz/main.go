@@ -1,6 +1,6 @@
 // Команда pvz — сервис приёмки товаров на ПВЗ.
 //
-//	pvz [serve]       HTTP API на :8080 (подкоманда по умолчанию)
+//	pvz [serve]       HTTP API на :8080 и gRPC на :3000 (подкоманда по умолчанию)
 //	pvz migrate       применить миграции БД и выйти
 //	pvz healthcheck   проверить, что запущенный сервис отвечает (для Docker)
 //	pvz demo-reset    очистить данные и создать эталонный набор демо
@@ -25,12 +25,14 @@ import (
 	"github.com/avito-tech/go-transaction-manager/trm/v2/manager"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc"
 
 	"github.com/HollowKaeden/pvz-service/internal/auth"
 	"github.com/HollowKaeden/pvz-service/internal/config"
 	"github.com/HollowKaeden/pvz-service/internal/demo"
 	"github.com/HollowKaeden/pvz-service/internal/repository/postgres"
 	"github.com/HollowKaeden/pvz-service/internal/service"
+	grpctransport "github.com/HollowKaeden/pvz-service/internal/transport/grpc"
 	httptransport "github.com/HollowKaeden/pvz-service/internal/transport/http"
 )
 
@@ -242,14 +244,57 @@ func serve(ctx context.Context, cfg config.Config, log *slog.Logger) error {
 		return fmt.Errorf("http: %w", err)
 	}
 
+	grpcSrv := grpctransport.NewServer(log.With(slog.String("server", "grpc")), svc.PVZ)
+	grpcLn, err := new(net.ListenConfig).Listen(ctx, "tcp", cfg.GRPCAddr)
+	if err != nil {
+		_ = httpLn.Close()
+		return fmt.Errorf("grpc: %w", err)
+	}
+
 	g, ctx := errgroup.WithContext(ctx)
 	g.Go(func() error {
 		return runHTTP(ctx, httpSrv, httpLn, log.With(slog.String("server", "http")))
+	})
+	g.Go(func() error {
+		return runGRPC(ctx, grpcSrv, grpcLn, log.With(slog.String("server", "grpc")))
 	})
 
 	err = g.Wait()
 	log.InfoContext(ctx, "pvz остановлен")
 	return err
+}
+
+// runGRPC обслуживает srv на ln, пока не отменён ctx, затем останавливает его:
+// новые вызовы не принимаются, начатые дорабатывают. Если они не успели за
+// shutdownTimeout, соединения рвутся.
+func runGRPC(ctx context.Context, srv *grpc.Server, ln net.Listener, log *slog.Logger) error {
+	log.InfoContext(ctx, "сервер слушает", slog.String("addr", ln.Addr().String()))
+
+	errc := make(chan error, 1)
+	go func() { errc <- srv.Serve(ln) }()
+
+	select {
+	case err := <-errc:
+		return fmt.Errorf("grpc: %w", err)
+	case <-ctx.Done():
+	}
+
+	log.InfoContext(ctx, "остановка сервера")
+	stopped := make(chan struct{})
+	go func() {
+		srv.GracefulStop()
+		close(stopped)
+	}()
+	select {
+	case <-stopped:
+	case <-time.After(shutdownTimeout):
+		srv.Stop()
+	}
+	// После GracefulStop или Stop Serve возвращает nil.
+	if err := <-errc; err != nil {
+		return fmt.Errorf("grpc: %w", err)
+	}
+	return nil
 }
 
 // runHTTP обслуживает srv на ln, пока не отменён ctx, затем останавливает его:

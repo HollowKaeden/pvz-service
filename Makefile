@@ -48,11 +48,11 @@ test: ## unit-тесты с детектором гонок
 test-int: ## интеграционные тесты: Postgres в Docker через testcontainers (нужен Docker)
 	go test -race -tags integration -count=1 ./tests/integration/...
 
-# Покрытие считается по коду internal/ без сгенерированного HTTP-слоя (oapi):
-# он большой, и его покрытие ничего не говорит о качестве тестов.
+# Покрытие считается по коду internal/ без сгенерированных пакетов (oapi,
+# pvzv1): они большие, и их покрытие ничего не говорит о качестве тестов.
 comma := ,
 space := $(subst ,, )
-COVERPKG = $(subst $(space),$(comma),$(strip $(shell go list ./internal/... | grep -v /oapi)))
+COVERPKG = $(subst $(space),$(comma),$(strip $(shell go list ./internal/... | grep -v -e /oapi -e /pvzv1)))
 COVER_MIN = 75
 
 cover: ## покрытие unit- и интеграционными тестами, не ниже COVER_MIN% (нужен Docker)

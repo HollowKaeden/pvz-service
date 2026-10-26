@@ -28,6 +28,7 @@ func TestLoad(t *testing.T) {
 			env:  map[string]string{"DATABASE_URL": dbURL, "JWT_SECRET": secret},
 			want: Config{
 				HTTPAddr:    ":8080",
+				GRPCAddr:    ":3000",
 				LogLevel:    slog.LevelInfo,
 				DatabaseURL: dbURL,
 				DBMaxConns:  10,
@@ -38,6 +39,7 @@ func TestLoad(t *testing.T) {
 			name: "из окружения",
 			env: map[string]string{
 				"HTTP_ADDR":        "127.0.0.1:9090",
+				"GRPC_ADDR":        "127.0.0.1:9091",
 				"LOG_LEVEL":        "DEBUG",
 				"DATABASE_URL":     dbURL,
 				"DB_MAX_CONNS":     "5",
@@ -48,6 +50,7 @@ func TestLoad(t *testing.T) {
 			},
 			want: Config{
 				HTTPAddr:       "127.0.0.1:9090",
+				GRPCAddr:       "127.0.0.1:9091",
 				LogLevel:       slog.LevelDebug,
 				DatabaseURL:    dbURL,
 				DBMaxConns:     5,
@@ -66,6 +69,7 @@ func TestLoad(t *testing.T) {
 			name: "все ошибки разом",
 			env: map[string]string{
 				"HTTP_ADDR":        "",
+				"GRPC_ADDR":        "",
 				"LOG_LEVEL":        "verbose",
 				"DB_MAX_CONNS":     "много",
 				"MIGRATE_ON_START": "наверное",
@@ -73,8 +77,8 @@ func TestLoad(t *testing.T) {
 				"AUTH_RATE_LIMIT":  "10",
 			},
 			wantErr: []string{
-				"HTTP_ADDR", "LOG_LEVEL", "DATABASE_URL", "DB_MAX_CONNS", "MIGRATE_ON_START", "JWT_SECRET", "TRUSTED_PROXIES",
-				"AUTH_RATE_LIMIT",
+				"HTTP_ADDR", "GRPC_ADDR", "LOG_LEVEL", "DATABASE_URL", "DB_MAX_CONNS", "MIGRATE_ON_START", "JWT_SECRET",
+				"TRUSTED_PROXIES", "AUTH_RATE_LIMIT",
 			},
 		},
 		{
@@ -101,8 +105,8 @@ func TestLoad(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			for _, key := range []string{
-				"HTTP_ADDR", "LOG_LEVEL", "DATABASE_URL", "DB_MAX_CONNS", "MIGRATE_ON_START", "JWT_SECRET", "TRUSTED_PROXIES",
-				"AUTH_RATE_LIMIT",
+				"HTTP_ADDR", "GRPC_ADDR", "LOG_LEVEL", "DATABASE_URL", "DB_MAX_CONNS", "MIGRATE_ON_START", "JWT_SECRET",
+				"TRUSTED_PROXIES", "AUTH_RATE_LIMIT",
 			} {
 				unsetenv(t, key)
 			}

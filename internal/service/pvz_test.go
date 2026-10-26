@@ -98,3 +98,30 @@ func TestNewPVZ(t *testing.T) {
 		assert.Nil(t, s)
 	})
 }
+
+func TestPVZAll(t *testing.T) {
+	list := []domain.PVZ{
+		{ID: uuid.MustParse("0192f1a4-7b3c-7d2e-8f00-000000000002"), City: "Москва"},
+		{ID: uuid.MustParse("0192f1a4-7b3c-7d2e-8f00-000000000001"), City: "Казань"},
+	}
+	errDB := errors.New("connection reset")
+
+	t.Run("все ПВЗ", func(t *testing.T) {
+		repo := newMockPVZRepository(t)
+		repo.EXPECT().All(mock.Anything).Return(list, nil)
+
+		got, err := newTestPVZ(t, repo, time.Now(), uuid.Nil).All(context.Background())
+
+		require.NoError(t, err)
+		assert.Equal(t, list, got)
+	})
+	t.Run("ошибка БД", func(t *testing.T) {
+		repo := newMockPVZRepository(t)
+		repo.EXPECT().All(mock.Anything).Return(nil, errDB)
+
+		got, err := newTestPVZ(t, repo, time.Now(), uuid.Nil).All(context.Background())
+
+		require.ErrorIs(t, err, errDB)
+		assert.Nil(t, got)
+	})
+}

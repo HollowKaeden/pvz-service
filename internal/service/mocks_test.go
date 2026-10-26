@@ -619,6 +619,68 @@ func (_m *mockPVZRepository) EXPECT() *mockPVZRepository_Expecter {
 	return &mockPVZRepository_Expecter{mock: &_m.Mock}
 }
 
+// All provides a mock function for the type mockPVZRepository
+func (_mock *mockPVZRepository) All(ctx context.Context) ([]domain.PVZ, error) {
+	ret := _mock.Called(ctx)
+
+	if len(ret) == 0 {
+		panic("no return value specified for All")
+	}
+
+	var r0 []domain.PVZ
+	var r1 error
+	if returnFunc, ok := ret.Get(0).(func(context.Context) ([]domain.PVZ, error)); ok {
+		return returnFunc(ctx)
+	}
+	if returnFunc, ok := ret.Get(0).(func(context.Context) []domain.PVZ); ok {
+		r0 = returnFunc(ctx)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]domain.PVZ)
+		}
+	}
+	if returnFunc, ok := ret.Get(1).(func(context.Context) error); ok {
+		r1 = returnFunc(ctx)
+	} else {
+		r1 = ret.Error(1)
+	}
+	return r0, r1
+}
+
+// mockPVZRepository_All_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'All'
+type mockPVZRepository_All_Call struct {
+	*mock.Call
+}
+
+// All is a helper method to define mock.On call
+//   - ctx context.Context
+func (_e *mockPVZRepository_Expecter) All(ctx any) *mockPVZRepository_All_Call {
+	return &mockPVZRepository_All_Call{Call: _e.mock.On("All", ctx)}
+}
+
+func (_c *mockPVZRepository_All_Call) Run(run func(ctx context.Context)) *mockPVZRepository_All_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		var arg0 context.Context
+		if args[0] != nil {
+			arg0 = args[0].(context.Context)
+		}
+		run(
+			arg0,
+		)
+	})
+	return _c
+}
+
+func (_c *mockPVZRepository_All_Call) Return(pVZs []domain.PVZ, err error) *mockPVZRepository_All_Call {
+	_c.Call.Return(pVZs, err)
+	return _c
+}
+
+func (_c *mockPVZRepository_All_Call) RunAndReturn(run func(ctx context.Context) ([]domain.PVZ, error)) *mockPVZRepository_All_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // Create provides a mock function for the type mockPVZRepository
 func (_mock *mockPVZRepository) Create(ctx context.Context, pvz domain.PVZ) error {
 	ret := _mock.Called(ctx, pvz)

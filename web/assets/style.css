@@ -186,6 +186,28 @@ code {
   max-width: 68ch;
 }
 
+/* команда grpcurl в шапке */
+.grpc {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.command {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 12px;
+}
+
+.command code {
+  font-size: 13px;
+  color: var(--accent);
+  background: var(--well);
+  padding: 6px 9px;
+}
+
 .links {
   grid-area: links;
   display: flex;

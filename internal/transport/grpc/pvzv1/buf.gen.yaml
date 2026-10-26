@@ -1,0 +1,11 @@
+# Кодогенерация gRPC-слоя из api/pvz.proto. Плагины запускаются через go tool,
+# поэтому их версии закреплены в go.mod, а protoc ставить не нужно. Запуск:
+# make generate.
+version: v2
+plugins:
+  - local: [go, tool, protoc-gen-go]
+    out: .
+    opt: paths=source_relative
+  - local: [go, tool, protoc-gen-go-grpc]
+    out: .
+    opt: paths=source_relative

@@ -21,6 +21,8 @@ import (
 type Config struct {
 	// HTTPAddr — адрес HTTP API (HTTP_ADDR), по условию задания порт 8080.
 	HTTPAddr string
+	// GRPCAddr — адрес gRPC-сервера (GRPC_ADDR), по условию задания порт 3000.
+	GRPCAddr string
 	// LogLevel — минимальный уровень логов (LOG_LEVEL: debug, info, warn, error).
 	LogLevel slog.Level
 
@@ -55,6 +57,7 @@ const minJWTSecretLen = 32
 func Load() (Config, error) {
 	cfg := Config{
 		HTTPAddr:    envOr("HTTP_ADDR", ":8080"),
+		GRPCAddr:    envOr("GRPC_ADDR", ":3000"),
 		DatabaseURL: os.Getenv("DATABASE_URL"),
 		JWTSecret:   []byte(os.Getenv("JWT_SECRET")),
 	}
@@ -65,6 +68,9 @@ func Load() (Config, error) {
 	}
 	if cfg.HTTPAddr == "" {
 		errs = append(errs, errors.New("HTTP_ADDR: пустое значение"))
+	}
+	if cfg.GRPCAddr == "" {
+		errs = append(errs, errors.New("GRPC_ADDR: пустое значение"))
 	}
 	if cfg.DatabaseURL == "" {
 		errs = append(errs, errors.New("DATABASE_URL: не задана"))

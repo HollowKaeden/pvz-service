@@ -19,6 +19,6 @@ RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/pvz ./cmd/pvz
 # сам бинарник (pvz healthcheck), wget и curl тут нет.
 FROM gcr.io/distroless/static-debian13:nonroot
 COPY --from=build /out/pvz /usr/local/bin/pvz
-EXPOSE 8080
+EXPOSE 8080 3000
 ENTRYPOINT ["pvz"]
 CMD ["serve"]

@@ -1,7 +1,8 @@
 //go:build integration
 
 // Package integration — интеграционные тесты pvz: настоящий Postgres в
-// Docker (testcontainers), настоящие репозитории, сервисы и HTTP-роутер.
+// Docker (testcontainers), настоящие репозитории, сервисы, HTTP-роутер и
+// gRPC-сервер.
 // Запуск: make test-int (нужен Docker). Тесты идут последовательно и перед
 // каждым очищают таблицы.
 package integration
@@ -13,6 +14,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -26,12 +28,15 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials/insecure"
 
 	"github.com/HollowKaeden/pvz-service/internal/auth"
 	"github.com/HollowKaeden/pvz-service/internal/demo"
 	"github.com/HollowKaeden/pvz-service/internal/domain"
 	"github.com/HollowKaeden/pvz-service/internal/repository/postgres"
 	"github.com/HollowKaeden/pvz-service/internal/service"
+	grpctransport "github.com/HollowKaeden/pvz-service/internal/transport/grpc"
 	httptransport "github.com/HollowKaeden/pvz-service/internal/transport/http"
 	"github.com/HollowKaeden/pvz-service/internal/transport/http/oapi"
 )
@@ -41,6 +46,7 @@ var (
 	pool     *pgxpool.Pool
 	services demo.Services
 	baseURL  string
+	grpcConn *grpc.ClientConn // соединение с gRPC-сервером pvz
 )
 
 func TestMain(m *testing.M) {
@@ -101,6 +107,22 @@ func runTests(m *testing.M) int {
 	}))
 	defer srv.Close()
 	baseURL = srv.URL
+
+	// gRPC на настоящем TCP-порту, как в проде, только порт свободный.
+	ln, err := new(net.ListenConfig).Listen(ctx, "tcp", "127.0.0.1:0")
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "порт для gRPC:", err)
+		return 1
+	}
+	grpcSrv := grpctransport.NewServer(log, services.PVZ)
+	go func() { _ = grpcSrv.Serve(ln) }()
+	defer grpcSrv.Stop()
+	grpcConn, err = grpc.NewClient(ln.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "клиент gRPC:", err)
+		return 1
+	}
+	defer grpcConn.Close()
 
 	return m.Run()
 }

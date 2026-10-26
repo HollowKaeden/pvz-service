@@ -2,7 +2,8 @@ syntax = "proto3";
 
 package pvz.v1;
 
-option go_package = "github.com/yourproject/pvz/pvz_v1;pvz_v1";
+// В задании здесь заглушка, её нужно заменить на путь в своём проекте.
+option go_package = "github.com/HollowKaeden/pvz-service/internal/transport/grpc/pvzv1;pvzv1";
 
 import "google/protobuf/timestamp.proto";
 

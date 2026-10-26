@@ -23,6 +23,8 @@ type PVZRepository interface {
 	// List возвращает страницу ПВЗ, новые сверху. Если период задан, только
 	// ПВЗ с приёмками в этом периоде.
 	List(ctx context.Context, period domain.Period, limit, offset int) ([]domain.PVZ, error)
+	// All возвращает все ПВЗ, новые сверху.
+	All(ctx context.Context) ([]domain.PVZ, error)
 }
 
 // CityRepository читает справочник городов.
@@ -183,4 +185,14 @@ func assemblePVZList(
 		list[i] = domain.PVZWithReceptions{PVZ: p, Receptions: items}
 	}
 	return list
+}
+
+// All возвращает все ПВЗ, новые сверху, без приёмок (gRPC-метод GetPVZList из
+// задания: «просто вернёт все добавленные в систему ПВЗ»).
+func (s *PVZ) All(ctx context.Context) ([]domain.PVZ, error) {
+	list, err := s.repo.All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("все ПВЗ: %w", err)
+	}
+	return list, nil
 }

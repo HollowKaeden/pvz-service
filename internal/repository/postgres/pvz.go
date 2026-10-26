@@ -91,6 +91,21 @@ func (r *PVZRepository) List(ctx context.Context, period domain.Period, limit, o
 		return nil, fmt.Errorf("select pvz: %w", err)
 	}
 
+	return r.query(ctx, query, args...)
+}
+
+// All возвращает все ПВЗ, новые сверху, без страниц и фильтров (gRPC-метод
+// GetPVZList из задания). Порядок читается из индекса (registration_date, id).
+func (r *PVZRepository) All(ctx context.Context) ([]domain.PVZ, error) {
+	return r.query(ctx, `
+		SELECT p.id, p.registration_date, c.name
+		FROM pvz p
+		JOIN cities c ON c.id = p.city_id
+		ORDER BY p.registration_date DESC, p.id DESC`)
+}
+
+// query выполняет SELECT, который возвращает id, дату регистрации и город.
+func (r *PVZRepository) query(ctx context.Context, query string, args ...any) ([]domain.PVZ, error) {
 	rows, err := r.db.conn(ctx).Query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("select pvz: %w", err)
