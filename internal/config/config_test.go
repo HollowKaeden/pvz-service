@@ -5,6 +5,7 @@ import (
 	"net/netip"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -43,6 +44,7 @@ func TestLoad(t *testing.T) {
 				"MIGRATE_ON_START": "true",
 				"JWT_SECRET":       secret,
 				"TRUSTED_PROXIES":  "172.30.0.2, 10.1.2.3/8,::1",
+				"AUTH_RATE_LIMIT":  "10/1m",
 			},
 			want: Config{
 				HTTPAddr:       "127.0.0.1:9090",
@@ -56,6 +58,8 @@ func TestLoad(t *testing.T) {
 					netip.MustParsePrefix("10.0.0.0/8"),
 					netip.MustParsePrefix("::1/128"),
 				},
+				AuthRateLimit:  10,
+				AuthRateWindow: time.Minute,
 			},
 		},
 		{
@@ -66,15 +70,27 @@ func TestLoad(t *testing.T) {
 				"DB_MAX_CONNS":     "много",
 				"MIGRATE_ON_START": "наверное",
 				"TRUSTED_PROXIES":  "caddy",
+				"AUTH_RATE_LIMIT":  "10",
 			},
 			wantErr: []string{
 				"HTTP_ADDR", "LOG_LEVEL", "DATABASE_URL", "DB_MAX_CONNS", "MIGRATE_ON_START", "JWT_SECRET", "TRUSTED_PROXIES",
+				"AUTH_RATE_LIMIT",
 			},
 		},
 		{
 			name:    "пул не может быть пустым",
 			env:     map[string]string{"DATABASE_URL": dbURL, "JWT_SECRET": secret, "DB_MAX_CONNS": "0"},
 			wantErr: []string{"DB_MAX_CONNS"},
+		},
+		{
+			name:    "лимит без запросов",
+			env:     map[string]string{"DATABASE_URL": dbURL, "JWT_SECRET": secret, "AUTH_RATE_LIMIT": "0/1m"},
+			wantErr: []string{"AUTH_RATE_LIMIT", "нужно целое от 1"},
+		},
+		{
+			name:    "лимит с пустым окном",
+			env:     map[string]string{"DATABASE_URL": dbURL, "JWT_SECRET": secret, "AUTH_RATE_LIMIT": "10/0s"},
+			wantErr: []string{"AUTH_RATE_LIMIT", "положительная длительность"},
 		},
 		{
 			name:    "короткий секрет",
@@ -86,6 +102,7 @@ func TestLoad(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			for _, key := range []string{
 				"HTTP_ADDR", "LOG_LEVEL", "DATABASE_URL", "DB_MAX_CONNS", "MIGRATE_ON_START", "JWT_SECRET", "TRUSTED_PROXIES",
+				"AUTH_RATE_LIMIT",
 			} {
 				unsetenv(t, key)
 			}

@@ -23,10 +23,10 @@ func NewDB(pool *pgxpool.Pool) *DB {
 	return &DB{pool: pool, getter: trmpgx.DefaultCtxGetter}
 }
 
-// ClearData удаляет все ПВЗ, приёмки и товары. Справочники не трогает. Нужна
-// только для сброса публичного демо (pvz demo-reset).
+// ClearData удаляет все ПВЗ, приёмки, товары и пользователей. Справочники не
+// трогает. Нужна только для сброса публичного демо (pvz demo-reset).
 func ClearData(ctx context.Context, pool *pgxpool.Pool) error {
-	if _, err := pool.Exec(ctx, `TRUNCATE products, receptions, pvz`); err != nil {
+	if _, err := pool.Exec(ctx, `TRUNCATE products, receptions, pvz, users`); err != nil {
 		return fmt.Errorf("очистка данных: %w", err)
 	}
 	return nil

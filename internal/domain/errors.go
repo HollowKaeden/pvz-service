@@ -34,6 +34,21 @@ var (
 	// ErrNoProductsToDelete — в открытой приёмке нет товаров, удалять нечего.
 	ErrNoProductsToDelete = errors.New("в приёмке нет товаров для удаления")
 
+	// ErrInvalidPassword — пароль не подходит под требования: слишком короткий
+	// или длиннее, чем учитывает bcrypt.
+	ErrInvalidPassword = errors.New("недопустимый пароль")
+
+	// ErrEmailTaken — пользователь с таким email уже зарегистрирован.
+	ErrEmailTaken = errors.New("пользователь с таким email уже зарегистрирован")
+
+	// ErrInvalidCredentials — неверный email или пароль. Что именно не так,
+	// не уточняется: иначе по ответам можно перебрать зарегистрированные email.
+	ErrInvalidCredentials = errors.New("неверный email или пароль")
+
+	// ErrUserNotFound — пользователя с таким email нет. Клиенту не
+	// показывается: сервис входа превращает её в ErrInvalidCredentials.
+	ErrUserNotFound = errors.New("пользователь не найден")
+
 	// ErrInvalidListParams — неверные параметры списка ПВЗ: страница, её
 	// размер или период.
 	ErrInvalidListParams = errors.New("неверные параметры списка")

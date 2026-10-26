@@ -216,9 +216,11 @@ func serve(ctx context.Context, cfg config.Config, log *slog.Logger) error {
 	tokens := auth.NewTokens(cfg.JWTSecret, tokenTTL)
 	router := httptransport.NewRouter(log, httptransport.Deps{
 		TrustedProxies: cfg.TrustedProxies,
+		AuthLimit:      cfg.AuthRateLimit,
+		AuthWindow:     cfg.AuthRateWindow,
 		DB:             pool,
 		Tokens:         tokens,
-		Auth:           service.NewAuth(tokens),
+		Auth:           service.NewAuth(tokens, postgres.NewUserRepository(postgres.NewDB(pool))),
 		PVZ:            svc.PVZ,
 		Receptions:     svc.Receptions,
 		Products:       svc.Products,

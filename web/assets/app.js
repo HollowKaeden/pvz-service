@@ -27,6 +27,7 @@ const LOG_LIMIT = 50;
 const state = {
   role: null,
   token: null,
+  email: null, // вход по email; null — вход по роли через /dummyLogin
   filter: { start: '', end: '' }, // даты в формате <input type="date">
   page: 1,
   limit: 10,
@@ -49,6 +50,7 @@ function loadSession() {
     if (saved?.token && ROLES[saved.role]) {
       state.role = saved.role;
       state.token = saved.token;
+      state.email = saved.email ?? null;
     }
   } catch {
     // нет сессии
@@ -58,7 +60,7 @@ function loadSession() {
 function saveSession() {
   try {
     if (state.token) {
-      sessionStorage.setItem(SESSION_KEY, JSON.stringify({ role: state.role, token: state.token }));
+      sessionStorage.setItem(SESSION_KEY, JSON.stringify({ role: state.role, token: state.token, email: state.email }));
     } else {
       sessionStorage.removeItem(SESSION_KEY);
     }
@@ -67,14 +69,67 @@ function saveSession() {
   }
 }
 
-async function login(role) {
-  try {
-    state.token = await request('POST', '/dummyLogin', { body: { role } });
-    state.role = role;
-  } catch (err) {
-    showRoleError(err);
+// Вход по роли без пароля: POST /dummyLogin.
+async function dummyLogin(role) {
+  const token = await authRequest('/dummyLogin', { role });
+  if (token) await signedIn(token, role, null);
+}
+
+// Вход по email: POST /login. Роли в ответе нет, она записана в самом токене.
+async function emailLogin(email, password) {
+  const token = await authRequest('/login', { email, password });
+  if (!token) return;
+  const role = tokenRole(token);
+  if (!ROLES[role]) {
+    showRoleError(new Error('В токене нет известной роли'));
     return;
   }
+  await signedIn(token, role, email);
+}
+
+// Регистрация: POST /register заводит пользователя, но токена не выдаёт. Его
+// выдаёт следующий за ним POST /login, оба запроса видны в журнале.
+async function register(email, password, role) {
+  const user = await authRequest('/register', { email, password, role });
+  if (user) await emailLogin(user.email, password);
+}
+
+// authRequest — запрос входа или регистрации. Пока он идёт, кнопки входа
+// неактивны; ошибка показывается под ними, результат null.
+async function authRequest(path, body) {
+  setAuthBusy(true);
+  try {
+    return await request('POST', path, { body });
+  } catch (err) {
+    showRoleError(err);
+    return null;
+  } finally {
+    setAuthBusy(false);
+  }
+}
+
+function setAuthBusy(busy) {
+  for (const button of document.querySelectorAll('#roles button, #email-form button')) {
+    button.disabled = busy;
+  }
+}
+
+// Роль из токена. JWT — три части в base64url через точку, роль лежит во
+// второй (payload). Подпись здесь не проверяется: это делает сервер на каждом
+// запросе.
+function tokenRole(token) {
+  try {
+    const payload = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    return JSON.parse(atob(payload)).role;
+  } catch {
+    return null;
+  }
+}
+
+async function signedIn(token, role, email) {
+  state.token = token;
+  state.role = role;
+  state.email = email;
   saveSession();
   state.page = 1;
   state.listMessage = null;
@@ -87,6 +142,7 @@ async function login(role) {
 function logout(message) {
   state.role = null;
   state.token = null;
+  state.email = null;
   state.items = null;
   state.expanded.clear();
   saveSession();
@@ -183,8 +239,9 @@ function errorText(err) {
 // --- роль -----------------------------------------------------------------
 
 function renderRole(message) {
+  // Кнопка роли отмечена, только если вход был через неё, а не по email.
   for (const button of $('roles').querySelectorAll('button')) {
-    button.setAttribute('aria-pressed', String(button.dataset.role === state.role));
+    button.setAttribute('aria-pressed', String(!state.email && button.dataset.role === state.role));
   }
   const box = $('role-state');
   if (!state.role) {
@@ -193,7 +250,7 @@ function renderRole(message) {
   }
   const role = ROLES[state.role];
   box.replaceChildren(
-    h('p', null, `Вы вошли как ${role.name}. `, h('span', { class: 'muted' }, role.can)),
+    h('p', null, `Вы вошли как ${role.name}${state.email ? ` (${state.email})` : ''}. `, h('span', { class: 'muted' }, role.can)),
     h('button', { type: 'button', class: 'text-button', onclick: () => logout() }, 'Выйти'),
   );
 }
@@ -469,7 +526,9 @@ function logEntry(entry) {
   const failed = entry.status === 0 || entry.status >= 400;
   const request = [];
   if (entry.withToken) request.push('Authorization: Bearer <токен>');
-  if (entry.requestBody !== undefined) request.push(JSON.stringify(entry.requestBody, null, 2));
+  // Пароль в журнал не попадает: журнал на экране, его могут показывать.
+  const body = entry.requestBody?.password === undefined ? entry.requestBody : { ...entry.requestBody, password: '********' };
+  if (body !== undefined) request.push(JSON.stringify(body, null, 2));
 
   $('log-empty').hidden = true;
   const log = $('log');
@@ -528,8 +587,16 @@ function init() {
     $('log-empty').hidden = false;
   });
   for (const button of $('roles').querySelectorAll('button')) {
-    button.addEventListener('click', () => login(button.dataset.role));
+    button.addEventListener('click', () => dummyLogin(button.dataset.role));
   }
+  const form = $('email-form');
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    emailLogin(form.elements.email.value.trim(), form.elements.password.value);
+  });
+  $('register').addEventListener('click', () => {
+    register(form.elements.email.value.trim(), form.elements.password.value, form.elements.role.value);
+  });
 
   loadSession();
   renderRole();

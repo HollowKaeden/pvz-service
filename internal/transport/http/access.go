@@ -17,6 +17,10 @@ type TokenParser interface {
 type access struct {
 	public bool          // без токена
 	roles  []domain.Role // с токеном одной из этих ролей
+	// limited — ручка под лимитом запросов с одного IP (limitAuth): на ней
+	// подбирают пароли и заводят пачки пользователей. Остальные ручки лимит
+	// не трогает, иначе он мешал бы нагрузочному тесту.
+	limited bool
 }
 
 // routeAccess — права на ручки контракта. Ключ — шаблон маршрута, под которым
@@ -27,8 +31,8 @@ func routeAccess() map[string]access {
 	employee := []domain.Role{domain.RoleEmployee}
 	return map[string]access{
 		"POST /dummyLogin":                       {public: true},
-		"POST /register":                         {public: true},
-		"POST /login":                            {public: true},
+		"POST /register":                         {public: true, limited: true},
+		"POST /login":                            {public: true, limited: true},
 		"POST /pvz":                              {roles: []domain.Role{domain.RoleModerator}},
 		"GET /pvz":                               {roles: []domain.Role{domain.RoleEmployee, domain.RoleModerator}},
 		"POST /receptions":                       {roles: employee},

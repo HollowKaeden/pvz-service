@@ -4,14 +4,17 @@ import (
 	"context"
 
 	"github.com/google/uuid"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 
 	"github.com/HollowKaeden/pvz-service/internal/domain"
 	"github.com/HollowKaeden/pvz-service/internal/transport/http/oapi"
 )
 
-// AuthService — вход в систему.
+// AuthService — регистрация и вход.
 type AuthService interface {
 	DummyLogin(ctx context.Context, role domain.Role) (string, error)
+	Register(ctx context.Context, email, password string, role domain.Role) (domain.User, error)
+	Login(ctx context.Context, email, password string) (string, error)
 }
 
 // PVZService — заведение ПВЗ и список ПВЗ.
@@ -41,8 +44,6 @@ type ProductService interface {
 // API реализует ручки контракта (oapi.StrictServerInterface). Сгенерированный
 // код разбирает запрос в DTO и сериализует ответ, здесь остаётся маппинг
 // DTO ↔ domain и вызов сервисов.
-//
-// Ручки, логика которых ещё не написана, отвечают 501.
 type API struct {
 	auth       AuthService
 	pvz        PVZService
@@ -63,14 +64,23 @@ func (a API) PostDummyLogin(
 	return oapi.PostDummyLogin200JSONResponse(token), nil
 }
 
-// PostRegister — POST /register: регистрация по email и паролю.
-func (API) PostRegister(context.Context, oapi.PostRegisterRequestObject) (oapi.PostRegisterResponseObject, error) {
-	return nil, errNotImplemented
+// PostRegister — POST /register: регистрация по email и паролю. Формат email
+// проверяет сгенерированный код при разборе тела.
+func (a API) PostRegister(ctx context.Context, req oapi.PostRegisterRequestObject) (oapi.PostRegisterResponseObject, error) {
+	user, err := a.auth.Register(ctx, string(req.Body.Email), req.Body.Password, domain.Role(req.Body.Role))
+	if err != nil {
+		return nil, err
+	}
+	return oapi.PostRegister201JSONResponse(toUser(user)), nil
 }
 
-// PostLogin — POST /login: вход по email и паролю.
-func (API) PostLogin(context.Context, oapi.PostLoginRequestObject) (oapi.PostLoginResponseObject, error) {
-	return nil, errNotImplemented
+// PostLogin — POST /login: вход по email и паролю, в ответе токен.
+func (a API) PostLogin(ctx context.Context, req oapi.PostLoginRequestObject) (oapi.PostLoginResponseObject, error) {
+	token, err := a.auth.Login(ctx, string(req.Body.Email), req.Body.Password)
+	if err != nil {
+		return nil, err
+	}
+	return oapi.PostLogin200JSONResponse(token), nil
 }
 
 // PostPVZ — POST /pvz: заведение ПВЗ (moderator). id и registrationDate из
@@ -147,6 +157,16 @@ func (a API) PostPVZPVZIDDeleteLastProduct(
 		return nil, err
 	}
 	return oapi.PostPVZPVZIDDeleteLastProduct200Response{}, nil
+}
+
+// toUser переводит пользователя из домена в DTO контракта. Хеш пароля в
+// ответ не попадает: в DTO для него нет поля.
+func toUser(u domain.User) oapi.User {
+	return oapi.User{
+		ID:    &u.ID,
+		Email: openapi_types.Email(u.Email),
+		Role:  oapi.UserRole(u.Role),
+	}
 }
 
 // toPVZ переводит ПВЗ из домена в DTO контракта.

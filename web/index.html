@@ -25,12 +25,28 @@
     </section>
 
     <section class="card role-card" aria-labelledby="role-title">
-      <h2 id="role-title" class="section-title">Роль</h2>
-      <p class="muted">Токен выдаёт <code>POST /dummyLogin</code>: пароль не нужен, роль выбирается кнопкой.</p>
+      <h2 id="role-title" class="section-title">Вход</h2>
+      <p class="muted">Быстрый вход: токен выдаёт <code>POST /dummyLogin</code>, пароль не нужен, роль выбирается кнопкой.</p>
       <div class="buttons" id="roles">
         <button type="button" class="button" data-role="employee" aria-pressed="false">Сотрудник ПВЗ</button>
         <button type="button" class="button" data-role="moderator" aria-pressed="false">Модератор</button>
       </div>
+      <!-- novalidate: email и пароль проверяет сервер, его ответ виден в журнале -->
+      <form class="panel" id="email-form" novalidate>
+        <p class="hint muted">Или по email: <code>POST /register</code> заводит пользователя, <code>POST /login</code> выдаёт токен с его ролью.</p>
+        <label class="field"><span class="label">Email</span><input class="input" type="email" name="email" autocomplete="username"></label>
+        <label class="field"><span class="label">Пароль, от 8 символов</span><input class="input" type="password" name="password" autocomplete="current-password"></label>
+        <label class="field"><span class="label">Роль при регистрации</span>
+          <select class="input" name="role">
+            <option value="employee">сотрудник ПВЗ</option>
+            <option value="moderator">модератор</option>
+          </select>
+        </label>
+        <div class="buttons">
+          <button class="button primary">Войти</button>
+          <button type="button" class="button" id="register">Зарегистрироваться</button>
+        </div>
+      </form>
       <div id="role-state" class="role-state" role="status"></div>
     </section>
 

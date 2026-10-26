@@ -14,6 +14,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // Config — настройки pvz.
@@ -38,6 +39,12 @@ type Config struct {
 	// (TRUSTED_PROXIES: IP или подсети через запятую). В проде это Caddy.
 	// Пусто по умолчанию: IP клиента берётся из самого соединения.
 	TrustedProxies []netip.Prefix
+
+	// AuthRateLimit и AuthRateWindow — сколько запросов к /register и /login
+	// пропускать с одного IP за окно (AUTH_RATE_LIMIT, например 10/1m).
+	// Не задано — лимит выключен.
+	AuthRateLimit  int
+	AuthRateWindow time.Duration
 }
 
 // minJWTSecretLen — для HS256 ключ должен быть не короче самой подписи, 256 бит.
@@ -87,6 +94,11 @@ func Load() (Config, error) {
 		errs = append(errs, fmt.Errorf("TRUSTED_PROXIES: %w", err))
 	}
 
+	cfg.AuthRateLimit, cfg.AuthRateWindow, err = parseRate(os.Getenv("AUTH_RATE_LIMIT"))
+	if err != nil {
+		errs = append(errs, fmt.Errorf("AUTH_RATE_LIMIT: %w", err))
+	}
+
 	if err := errors.Join(errs...); err != nil {
 		return Config{}, fmt.Errorf("конфиг: %w", err)
 	}
@@ -117,6 +129,27 @@ func parsePrefixes(s string) ([]netip.Prefix, error) {
 		prefixes = append(prefixes, netip.PrefixFrom(addr, addr.BitLen()))
 	}
 	return prefixes, nil
+}
+
+// parseRate разбирает лимит вида «число/окно»: 10/1m — 10 запросов в минуту.
+// Пустая строка — лимита нет (0, 0).
+func parseRate(s string) (int, time.Duration, error) {
+	if s == "" {
+		return 0, 0, nil
+	}
+	countText, windowText, ok := strings.Cut(s, "/")
+	if !ok {
+		return 0, 0, fmt.Errorf("нужен вид число/окно, например 10/1m, получено %q", s)
+	}
+	count, err := strconv.Atoi(countText)
+	if err != nil || count < 1 {
+		return 0, 0, fmt.Errorf("число запросов %q: нужно целое от 1", countText)
+	}
+	window, err := time.ParseDuration(windowText)
+	if err != nil || window <= 0 {
+		return 0, 0, fmt.Errorf("окно %q: нужна положительная длительность, например 1m или 30s", windowText)
+	}
+	return count, window, nil
 }
 
 // envOr возвращает значение переменной или def, если переменная не задана.

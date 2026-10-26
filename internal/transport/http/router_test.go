@@ -160,11 +160,45 @@ func (fakeProducts) DeleteLast(_ context.Context, pvzID uuid.UUID) error {
 	}
 }
 
+// fakeAuth — AuthService для тестов HTTP-слоя: /dummyLogin настоящий,
+// регистрация и вход ведут себя по email и паролю из констант ниже.
+type fakeAuth struct {
+	*service.Auth
+}
+
+const (
+	emailTaken   = "taken@example.com" // уже зарегистрирован
+	emailUser    = "user@example.com"  // модератор с паролем userPassword
+	userPassword = "password1"
+)
+
+func (fakeAuth) Register(_ context.Context, email, password string, role domain.Role) (domain.User, error) {
+	switch {
+	case email == emailTaken:
+		return domain.User{}, domain.ErrEmailTaken
+	case len(password) < 8:
+		return domain.User{}, fmt.Errorf("%w: нужно не меньше 8 символов", domain.ErrInvalidPassword)
+	}
+	return domain.User{
+		ID:           uuid.MustParse("0192f1a4-7b3c-7d2e-8f00-0000000000c1"),
+		Email:        email,
+		Role:         role,
+		PasswordHash: []byte("$2a$10$hash"),
+	}, nil
+}
+
+func (fakeAuth) Login(_ context.Context, email, password string) (string, error) {
+	if email != emailUser || password != userPassword {
+		return "", domain.ErrInvalidCredentials
+	}
+	return testTokens.Issue(domain.RoleModerator)
+}
+
 func newRouterWithDB(db Pinger) http.Handler {
 	return NewRouter(slog.New(slog.DiscardHandler), Deps{
 		DB:         db,
 		Tokens:     testTokens,
-		Auth:       service.NewAuth(testTokens),
+		Auth:       fakeAuth{service.NewAuth(testTokens, nil)},
 		PVZ:        fakePVZ{},
 		Receptions: fakeReceptions{},
 		Products:   fakeProducts{},
@@ -214,25 +248,62 @@ func TestHealth(t *testing.T) {
 	}
 }
 
-// Ручки, логика которых ещё не написана, отвечают 501 с телом ошибки из
-// контракта. Обе открытые, токен не нужен.
-func TestContractRoutesNotImplemented(t *testing.T) {
+// POST /register: в ответе пользователь из контракта, без хеша пароля.
+func TestRegister(t *testing.T) {
 	h := newTestRouter()
 
+	t.Run("пользователь заведён", func(t *testing.T) {
+		rec := serve(h, http.MethodPost, "/register",
+			`{"email":"ivan@example.com","password":"password1","role":"employee"}`, "")
+
+		require.Equal(t, http.StatusCreated, rec.Code, rec.Body.String())
+		assert.JSONEq(t,
+			`{"id":"0192f1a4-7b3c-7d2e-8f00-0000000000c1","email":"ivan@example.com","role":"employee"}`,
+			rec.Body.String())
+	})
+
 	tests := []struct {
-		method, path, body string
+		name, body, wantMsg string
 	}{
-		{http.MethodPost, "/register", `{"email":"a@b.ru","password":"p","role":"employee"}`},
-		{http.MethodPost, "/login", `{"email":"a@b.ru","password":"p"}`},
+		{"email занят", `{"email":"` + emailTaken + `","password":"password1","role":"employee"}`,
+			"пользователь с таким email уже зарегистрирован"},
+		{"короткий пароль", `{"email":"ivan@example.com","password":"short","role":"employee"}`,
+			"недопустимый пароль"},
+		{"неверный email", `{"email":"ivan","password":"password1","role":"employee"}`, "неверный запрос"},
+		{"нет пароля", `{"email":"ivan@example.com","role":"employee"}`, "недопустимый пароль"},
 	}
 	for _, tt := range tests {
-		t.Run(tt.method+" "+tt.path, func(t *testing.T) {
-			rec := serve(h, tt.method, tt.path, tt.body, "")
+		t.Run(tt.name, func(t *testing.T) {
+			rec := serve(h, http.MethodPost, "/register", tt.body, "")
 
-			assert.Equal(t, http.StatusNotImplemented, rec.Code)
+			assert.Equal(t, http.StatusBadRequest, rec.Code)
 			assertErrorBody(t, rec)
+			assert.Contains(t, rec.Body.String(), tt.wantMsg)
 		})
 	}
+}
+
+// POST /login: токен с ролью пользователя или 401.
+func TestLogin(t *testing.T) {
+	h := newTestRouter()
+
+	t.Run("верный пароль", func(t *testing.T) {
+		rec := serve(h, http.MethodPost, "/login", `{"email":"`+emailUser+`","password":"`+userPassword+`"}`, "")
+		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+
+		var token string // по контракту Token — JSON-строка
+		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &token))
+		// Пользователь — модератор: ему можно заводить ПВЗ.
+		assert.Equal(t, http.StatusCreated, serve(h, http.MethodPost, "/pvz", `{"city":"Москва"}`, token).Code)
+	})
+	t.Run("неверный пароль", func(t *testing.T) {
+		rec := serve(h, http.MethodPost, "/login", `{"email":"`+emailUser+`","password":"wrong-password"}`, "")
+
+		assert.Equal(t, http.StatusUnauthorized, rec.Code)
+		assert.Equal(t, "Bearer", rec.Header().Get("WWW-Authenticate"))
+		assertErrorBody(t, rec)
+		assert.Contains(t, rec.Body.String(), "неверный email или пароль")
+	})
 }
 
 // Токен из /dummyLogin пускает в ручки своей роли и не пускает в чужие.

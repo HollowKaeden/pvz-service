@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/netip"
+	"time"
 
 	"github.com/HollowKaeden/pvz-service/internal/transport/http/oapi"
 )
@@ -18,6 +19,11 @@ const maxBodyBytes = 1 << 20
 type Deps struct {
 	// TrustedProxies — прокси, которым можно верить в X-Forwarded-For.
 	TrustedProxies []netip.Prefix
+
+	// AuthLimit — сколько запросов к /register и /login пропускать с одного
+	// IP за AuthWindow. 0 — лимит выключен.
+	AuthLimit  int
+	AuthWindow time.Duration
 
 	DB         Pinger
 	Tokens     TokenParser
@@ -39,6 +45,12 @@ func NewRouter(log *slog.Logger, deps Deps) http.Handler {
 	mux.HandleFunc("GET /docs/{$}", swaggerUI)
 	mux.HandleFunc("GET /docs/openapi.yaml", openAPISpec)
 
+	var limiter *rateLimiter
+	if deps.AuthLimit > 0 {
+		limiter = newRateLimiter(deps.AuthLimit, deps.AuthWindow)
+	}
+	rules := routeAccess()
+
 	strict := oapi.NewStrictHandlerWithOptions(API{auth: deps.Auth, pvz: deps.PVZ, receptions: deps.Receptions, products: deps.Products}, nil, oapi.StrictHTTPServerOptions{
 		RequestErrorHandlerFunc:  badRequest,
 		ResponseErrorHandlerFunc: handlerError(log),
@@ -46,7 +58,10 @@ func NewRouter(log *slog.Logger, deps Deps) http.Handler {
 	oapi.HandlerWithOptions(strict, oapi.StdHTTPServerOptions{
 		BaseRouter:       mux,
 		ErrorHandlerFunc: badRequest,
-		Middlewares:      []oapi.MiddlewareFunc{authorize(deps.Tokens, routeAccess())},
+		Middlewares: []oapi.MiddlewareFunc{
+			authorize(deps.Tokens, rules),
+			limitAuth(limiter, deps.TrustedProxies, rules),
+		},
 	})
 
 	return logRequests(log, deps.TrustedProxies, limitBody(mux))

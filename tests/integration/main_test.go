@@ -94,7 +94,7 @@ func runTests(m *testing.M) int {
 	srv := httptest.NewServer(httptransport.NewRouter(log, httptransport.Deps{
 		DB:         pool,
 		Tokens:     tokens,
-		Auth:       service.NewAuth(tokens),
+		Auth:       service.NewAuth(tokens, postgres.NewUserRepository(postgres.NewDB(pool))),
 		PVZ:        services.PVZ,
 		Receptions: services.Receptions,
 		Products:   services.Products,
@@ -135,7 +135,7 @@ func newServices(ctx context.Context, pool *pgxpool.Pool) (demo.Services, error)
 // resetDB очищает таблицы с данными. Справочники не трогает.
 func resetDB(t *testing.T) {
 	t.Helper()
-	_, err := pool.Exec(context.Background(), `TRUNCATE products, receptions, pvz`)
+	_, err := pool.Exec(context.Background(), `TRUNCATE products, receptions, pvz, users`)
 	require.NoError(t, err)
 }
 
