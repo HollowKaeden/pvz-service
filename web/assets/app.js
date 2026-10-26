@@ -153,7 +153,7 @@ function logout(message) {
 // API ответил 401: токен истёк (живёт сутки) или подпись сменилась.
 function handleAuthError(err) {
   if (err instanceof ApiError && err.status === 401) {
-    logout('Токен больше не действует. Выберите роль заново.');
+    logout('Токен больше не действует. Войдите заново.');
     return true;
   }
   return false;
@@ -267,7 +267,7 @@ function renderPVZCard() {
   const box = $('pvz');
   if (!state.token) {
     box.replaceChildren(
-      h('p', { class: 'muted' }, 'Выберите роль: список ПВЗ (GET /pvz) доступен обеим ролям, но только с токеном.'),
+      h('p', { class: 'muted' }, 'Войдите: список ПВЗ (GET /pvz) доступен обеим ролям, но только с токеном.'),
     );
     return;
   }
