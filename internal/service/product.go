@@ -40,6 +40,7 @@ type Product struct {
 	pvz        PVZRepository
 	receptions ReceptionRepository
 	products   ProductRepository
+	metrics    Metrics
 	types      []string // справочник типов товаров, загружается один раз при старте
 
 	now   func() time.Time
@@ -55,6 +56,7 @@ func NewProduct(
 	receptions ReceptionRepository,
 	products ProductRepository,
 	types ProductTypeRepository,
+	metrics Metrics,
 ) (*Product, error) {
 	list, err := types.List(ctx)
 	if err != nil {
@@ -65,6 +67,7 @@ func NewProduct(
 		pvz:        pvz,
 		receptions: receptions,
 		products:   products,
+		metrics:    metrics,
 		types:      list,
 		now:        time.Now,
 		newID:      uuid.NewV7,
@@ -106,6 +109,7 @@ func (s *Product) Add(ctx context.Context, pvzID uuid.UUID, productType string) 
 	if err != nil {
 		return domain.Product{}, err
 	}
+	s.metrics.ProductAdded(productType)
 	return p, nil
 }
 

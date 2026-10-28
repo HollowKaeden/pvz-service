@@ -23,6 +23,9 @@ type Config struct {
 	HTTPAddr string
 	// GRPCAddr — адрес gRPC-сервера (GRPC_ADDR), по условию задания порт 3000.
 	GRPCAddr string
+	// MetricsAddr — адрес, на котором Prometheus забирает метрики /metrics
+	// (METRICS_ADDR). В проде этот порт открыт только внутри Docker-сети.
+	MetricsAddr string
 	// LogLevel — минимальный уровень логов (LOG_LEVEL: debug, info, warn, error).
 	LogLevel slog.Level
 
@@ -58,6 +61,7 @@ func Load() (Config, error) {
 	cfg := Config{
 		HTTPAddr:    envOr("HTTP_ADDR", ":8080"),
 		GRPCAddr:    envOr("GRPC_ADDR", ":3000"),
+		MetricsAddr: envOr("METRICS_ADDR", ":9000"),
 		DatabaseURL: os.Getenv("DATABASE_URL"),
 		JWTSecret:   []byte(os.Getenv("JWT_SECRET")),
 	}
@@ -71,6 +75,9 @@ func Load() (Config, error) {
 	}
 	if cfg.GRPCAddr == "" {
 		errs = append(errs, errors.New("GRPC_ADDR: пустое значение"))
+	}
+	if cfg.MetricsAddr == "" {
+		errs = append(errs, errors.New("METRICS_ADDR: пустое значение"))
 	}
 	if cfg.DatabaseURL == "" {
 		errs = append(errs, errors.New("DATABASE_URL: не задана"))

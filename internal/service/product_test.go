@@ -19,12 +19,13 @@ var testProductTypes = []string{"электроника", "одежда", "об�
 // newTestProduct создаёт сервис товаров со справочником типов из задания.
 func newTestProduct(
 	t *testing.T, tx TxManager, pvz PVZRepository, receptions ReceptionRepository, products ProductRepository,
+	metrics Metrics,
 ) *Product {
 	t.Helper()
 	types := newMockProductTypeRepository(t)
 	types.EXPECT().List(mock.Anything).Return(testProductTypes, nil)
 
-	s, err := NewProduct(context.Background(), tx, pvz, receptions, products, types)
+	s, err := NewProduct(context.Background(), tx, pvz, receptions, products, types, metrics)
 	require.NoError(t, err)
 	return s
 }
@@ -119,7 +120,12 @@ func TestProductAdd(t *testing.T) {
 			if tt.callsSave {
 				products.EXPECT().Create(inTx, want).Return(tt.saveErr)
 			}
-			s := newTestProduct(t, tx, pvz, receptions, products)
+			// Строгий мок: счётчик, тронутый при ошибке, уронит тест.
+			metrics := newMockMetrics(t)
+			if tt.wantErr == nil {
+				metrics.EXPECT().ProductAdded(tt.productType).Once()
+			}
+			s := newTestProduct(t, tx, pvz, receptions, products, metrics)
 			s.now = func() time.Time { return now }
 			s.newID = func() (uuid.UUID, error) { return productID, nil }
 
@@ -178,7 +184,7 @@ func TestProductDeleteLast(t *testing.T) {
 				// Удаляется товар именно из заблокированной открытой приёмки.
 				products.EXPECT().DeleteLast(inTx, testReceptionID).Return(tt.deleteErr)
 			}
-			s := newTestProduct(t, newTestTx(t, nil), pvz, receptions, products)
+			s := newTestProduct(t, newTestTx(t, nil), pvz, receptions, products, newMockMetrics(t))
 
 			err := s.DeleteLast(context.Background(), testPVZID)
 
@@ -201,7 +207,7 @@ func TestNewProduct(t *testing.T) {
 		types.EXPECT().List(mock.Anything).Return(nil, errDB)
 
 		s, err := NewProduct(context.Background(), newMockTxManager(t), newMockPVZRepository(t),
-			newMockReceptionRepository(t), newMockProductRepository(t), types)
+			newMockReceptionRepository(t), newMockProductRepository(t), types, newMockMetrics(t))
 
 		require.ErrorIs(t, err, errDB)
 		assert.Nil(t, s)

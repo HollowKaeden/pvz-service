@@ -17,12 +17,12 @@ import (
 var testCities = []string{"Москва", "Санкт-Петербург", "Казань"}
 
 // newTestPVZ создаёт сервис с фиксированными временем и id.
-func newTestPVZ(t *testing.T, repo PVZRepository, now time.Time, id uuid.UUID) *PVZ {
+func newTestPVZ(t *testing.T, repo PVZRepository, metrics Metrics, now time.Time, id uuid.UUID) *PVZ {
 	t.Helper()
 	cities := newMockCityRepository(t)
 	cities.EXPECT().List(mock.Anything).Return(testCities, nil)
 
-	s, err := NewPVZ(context.Background(), repo, cities, newMockReceptionRepository(t), newMockProductRepository(t))
+	s, err := NewPVZ(context.Background(), repo, cities, newMockReceptionRepository(t), newMockProductRepository(t), metrics)
 	require.NoError(t, err)
 	s.now = func() time.Time { return now }
 	s.newID = func() (uuid.UUID, error) { return id, nil }
@@ -61,7 +61,12 @@ func TestPVZCreate(t *testing.T) {
 			if tt.callsDB {
 				repo.EXPECT().Create(mock.Anything, want).Return(tt.repoErr)
 			}
-			s := newTestPVZ(t, repo, now, id)
+			// Строгий мок: счётчик, тронутый при ошибке, уронит тест.
+			metrics := newMockMetrics(t)
+			if tt.wantErr == nil {
+				metrics.EXPECT().PVZCreated(tt.city).Once()
+			}
+			s := newTestPVZ(t, repo, metrics, now, id)
 
 			got, err := s.Create(context.Background(), tt.city)
 
@@ -77,7 +82,7 @@ func TestPVZCreate(t *testing.T) {
 }
 
 func TestPVZCreateErrorMessage(t *testing.T) {
-	s := newTestPVZ(t, newMockPVZRepository(t), time.Now(), uuid.New())
+	s := newTestPVZ(t, newMockPVZRepository(t), newMockMetrics(t), time.Now(), uuid.New())
 
 	_, err := s.Create(context.Background(), "Томск")
 
@@ -92,7 +97,7 @@ func TestNewPVZ(t *testing.T) {
 		cities.EXPECT().List(mock.Anything).Return(nil, errDB)
 
 		s, err := NewPVZ(context.Background(), newMockPVZRepository(t), cities,
-			newMockReceptionRepository(t), newMockProductRepository(t))
+			newMockReceptionRepository(t), newMockProductRepository(t), newMockMetrics(t))
 
 		require.ErrorIs(t, err, errDB)
 		assert.Nil(t, s)
@@ -110,7 +115,7 @@ func TestPVZAll(t *testing.T) {
 		repo := newMockPVZRepository(t)
 		repo.EXPECT().All(mock.Anything).Return(list, nil)
 
-		got, err := newTestPVZ(t, repo, time.Now(), uuid.Nil).All(context.Background())
+		got, err := newTestPVZ(t, repo, newMockMetrics(t), time.Now(), uuid.Nil).All(context.Background())
 
 		require.NoError(t, err)
 		assert.Equal(t, list, got)
@@ -119,7 +124,7 @@ func TestPVZAll(t *testing.T) {
 		repo := newMockPVZRepository(t)
 		repo.EXPECT().All(mock.Anything).Return(nil, errDB)
 
-		got, err := newTestPVZ(t, repo, time.Now(), uuid.Nil).All(context.Background())
+		got, err := newTestPVZ(t, repo, newMockMetrics(t), time.Now(), uuid.Nil).All(context.Background())
 
 		require.ErrorIs(t, err, errDB)
 		assert.Nil(t, got)

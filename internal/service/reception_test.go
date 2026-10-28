@@ -122,7 +122,12 @@ func TestReceptionOpen(t *testing.T) {
 			if tt.callsSave {
 				receptions.EXPECT().Create(inTx, want).Return(tt.saveErr)
 			}
-			s := NewReception(newTestTx(t, tt.txErr), pvz, receptions)
+			// Строгий мок: счётчик, тронутый при ошибке, уронит тест.
+			metrics := newMockMetrics(t)
+			if tt.wantErr == nil {
+				metrics.EXPECT().ReceptionOpened().Once()
+			}
+			s := NewReception(newTestTx(t, tt.txErr), pvz, receptions, metrics)
 			s.now = func() time.Time { return now }
 			s.newID = func() (uuid.UUID, error) { return testReceptionID, nil }
 
@@ -216,7 +221,11 @@ func TestReceptionClose(t *testing.T) {
 			if tt.callsSet {
 				receptions.EXPECT().SetStatus(inTx, testReceptionID, domain.ReceptionClosed).Return(tt.setErr)
 			}
-			s := NewReception(newTestTx(t, tt.txErr), pvz, receptions)
+			metrics := newMockMetrics(t)
+			if tt.wantErr == nil {
+				metrics.EXPECT().ReceptionClosed().Once()
+			}
+			s := NewReception(newTestTx(t, tt.txErr), pvz, receptions, metrics)
 
 			got, err := s.Close(context.Background(), testPVZID)
 

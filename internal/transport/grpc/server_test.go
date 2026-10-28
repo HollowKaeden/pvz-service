@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"sync"
 	"testing"
 	"time"
 
@@ -36,8 +37,14 @@ func (f fakePVZ) All(context.Context) ([]domain.PVZ, error) { return f.list, f.e
 // соединение с ним. Лог сервера пишется в logs.
 func dial(t *testing.T, pvz PVZService, logs *bytes.Buffer) *grpc.ClientConn {
 	t.Helper()
+	return dialWithMetrics(t, pvz, logs, nil)
+}
+
+// dialWithMetrics — то же, что dial, но с учётом вызовов в metrics.
+func dialWithMetrics(t *testing.T, pvz PVZService, logs *bytes.Buffer, metrics CallMetrics) *grpc.ClientConn {
+	t.Helper()
 	ln := bufconn.Listen(1 << 20)
-	srv := NewServer(slog.New(slog.NewJSONHandler(logs, nil)), pvz)
+	srv := NewServer(slog.New(slog.NewJSONHandler(logs, nil)), pvz, metrics)
 	go func() { _ = srv.Serve(ln) }()
 	t.Cleanup(srv.Stop)
 
@@ -123,4 +130,37 @@ func TestReflection(t *testing.T) {
 		names = append(names, s.GetName())
 	}
 	assert.Contains(t, names, "pvz.v1.PVZService")
+}
+
+// metricsSpy — CallMetrics для тестов: запоминает метод и код каждого вызова.
+type metricsSpy struct {
+	mu    sync.Mutex
+	calls []string
+}
+
+func (s *metricsSpy) ObserveGRPC(method, code string, _ time.Duration) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.calls = append(s.calls, method+" "+code)
+}
+
+// Метрики видят тот же код, что и клиент: неожиданная ошибка считается как
+// Internal, а не как ошибка без кода (Unknown).
+func TestMeasureCalls(t *testing.T) {
+	spy := &metricsSpy{}
+	errDB := errors.New("dial tcp 10.0.0.5:5432: connection refused")
+	okClient := pvzv1.NewPVZServiceClient(dialWithMetrics(t, fakePVZ{}, &bytes.Buffer{}, spy))
+	failClient := pvzv1.NewPVZServiceClient(dialWithMetrics(t, fakePVZ{err: errDB}, &bytes.Buffer{}, spy))
+
+	_, err := okClient.GetPVZList(context.Background(), &pvzv1.GetPVZListRequest{})
+	require.NoError(t, err)
+	_, err = failClient.GetPVZList(context.Background(), &pvzv1.GetPVZListRequest{})
+	require.Error(t, err)
+
+	spy.mu.Lock()
+	defer spy.mu.Unlock()
+	assert.Equal(t, []string{
+		"/pvz.v1.PVZService/GetPVZList OK",
+		"/pvz.v1.PVZService/GetPVZList Internal",
+	}, spy.calls)
 }

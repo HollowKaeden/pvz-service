@@ -37,14 +37,18 @@ type Reception struct {
 	tx         TxManager
 	pvz        PVZRepository
 	receptions ReceptionRepository
+	metrics    Metrics
 
 	now   func() time.Time
 	newID func() (uuid.UUID, error)
 }
 
 // NewReception создаёт сервис приёмок.
-func NewReception(tx TxManager, pvz PVZRepository, receptions ReceptionRepository) *Reception {
-	return &Reception{tx: tx, pvz: pvz, receptions: receptions, now: time.Now, newID: uuid.NewV7}
+func NewReception(tx TxManager, pvz PVZRepository, receptions ReceptionRepository, metrics Metrics) *Reception {
+	return &Reception{
+		tx: tx, pvz: pvz, receptions: receptions, metrics: metrics,
+		now: time.Now, newID: uuid.NewV7,
+	}
 }
 
 // Open открывает новую приёмку на ПВЗ, если на нём нет незакрытой.
@@ -95,6 +99,7 @@ func (s *Reception) Open(ctx context.Context, pvzID uuid.UUID) (domain.Reception
 	if err != nil {
 		return domain.Reception{}, err
 	}
+	s.metrics.ReceptionOpened()
 	return rec, nil
 }
 
@@ -128,6 +133,7 @@ func (s *Reception) Close(ctx context.Context, pvzID uuid.UUID) (domain.Receptio
 	if err != nil {
 		return domain.Reception{}, err
 	}
+	s.metrics.ReceptionClosed()
 	return rec, nil
 }
 

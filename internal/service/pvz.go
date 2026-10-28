@@ -37,6 +37,7 @@ type PVZ struct {
 	repo       PVZRepository
 	receptions ReceptionRepository
 	products   ProductRepository
+	metrics    Metrics
 	cities     []string // справочник городов, загружается один раз при старте
 
 	now   func() time.Time
@@ -51,6 +52,7 @@ func NewPVZ(
 	cities CityRepository,
 	receptions ReceptionRepository,
 	products ProductRepository,
+	metrics Metrics,
 ) (*PVZ, error) {
 	list, err := cities.List(ctx)
 	if err != nil {
@@ -60,6 +62,7 @@ func NewPVZ(
 		repo:       repo,
 		receptions: receptions,
 		products:   products,
+		metrics:    metrics,
 		cities:     list,
 		now:        time.Now,
 		newID:      uuid.NewV7,
@@ -88,6 +91,7 @@ func (s *PVZ) Create(ctx context.Context, city string) (domain.PVZ, error) {
 	if err := s.repo.Create(ctx, pvz); err != nil {
 		return domain.PVZ{}, fmt.Errorf("создание ПВЗ: %w", err)
 	}
+	s.metrics.PVZCreated(city)
 	return pvz, nil
 }
 

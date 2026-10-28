@@ -34,6 +34,7 @@ import (
 	"github.com/HollowKaeden/pvz-service/internal/auth"
 	"github.com/HollowKaeden/pvz-service/internal/demo"
 	"github.com/HollowKaeden/pvz-service/internal/domain"
+	"github.com/HollowKaeden/pvz-service/internal/metrics"
 	"github.com/HollowKaeden/pvz-service/internal/repository/postgres"
 	"github.com/HollowKaeden/pvz-service/internal/service"
 	grpctransport "github.com/HollowKaeden/pvz-service/internal/transport/grpc"
@@ -46,7 +47,8 @@ var (
 	pool     *pgxpool.Pool
 	services demo.Services
 	baseURL  string
-	grpcConn *grpc.ClientConn // соединение с gRPC-сервером pvz
+	grpcConn *grpc.ClientConn  // соединение с gRPC-сервером pvz
+	recorder *metrics.Recorder // метрики сервисов, HTTP и gRPC
 )
 
 func TestMain(m *testing.M) {
@@ -91,13 +93,15 @@ func runTests(m *testing.M) int {
 		return 1
 	}
 
-	services, err = newServices(ctx, pool)
+	recorder = metrics.New()
+	services, err = newServices(ctx, pool, recorder)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		return 1
 	}
 	tokens := auth.NewTokens([]byte("integration-test-secret-0123456789abcdef"), time.Hour)
 	srv := httptest.NewServer(httptransport.NewRouter(log, httptransport.Deps{
+		Metrics:    recorder,
 		DB:         pool,
 		Tokens:     tokens,
 		Auth:       service.NewAuth(tokens, postgres.NewUserRepository(postgres.NewDB(pool))),
@@ -114,7 +118,7 @@ func runTests(m *testing.M) int {
 		fmt.Fprintln(os.Stderr, "порт для gRPC:", err)
 		return 1
 	}
-	grpcSrv := grpctransport.NewServer(log, services.PVZ)
+	grpcSrv := grpctransport.NewServer(log, services.PVZ, recorder)
 	go func() { _ = grpcSrv.Serve(ln) }()
 	defer grpcSrv.Stop()
 	grpcConn, err = grpc.NewClient(ln.Addr().String(), grpc.WithTransportCredentials(insecure.NewCredentials()))
@@ -129,7 +133,7 @@ func runTests(m *testing.M) int {
 
 // newServices собирает сервисы так же, как cmd/pvz: настоящие репозитории и
 // менеджер транзакций.
-func newServices(ctx context.Context, pool *pgxpool.Pool) (demo.Services, error) {
+func newServices(ctx context.Context, pool *pgxpool.Pool, m service.Metrics) (demo.Services, error) {
 	db := postgres.NewDB(pool)
 	txManager, err := manager.New(trmpgx.NewDefaultFactory(pool))
 	if err != nil {
@@ -138,18 +142,18 @@ func newServices(ctx context.Context, pool *pgxpool.Pool) (demo.Services, error)
 	pvzRepo := postgres.NewPVZRepository(db)
 	receptionRepo := postgres.NewReceptionRepository(db)
 	productRepo := postgres.NewProductRepository(db)
-	pvzService, err := service.NewPVZ(ctx, pvzRepo, postgres.NewCityRepository(db), receptionRepo, productRepo)
+	pvzService, err := service.NewPVZ(ctx, pvzRepo, postgres.NewCityRepository(db), receptionRepo, productRepo, m)
 	if err != nil {
 		return demo.Services{}, err
 	}
 	productService, err := service.NewProduct(ctx, txManager, pvzRepo, receptionRepo,
-		productRepo, postgres.NewProductTypeRepository(db))
+		productRepo, postgres.NewProductTypeRepository(db), m)
 	if err != nil {
 		return demo.Services{}, err
 	}
 	return demo.Services{
 		PVZ:        pvzService,
-		Receptions: service.NewReception(txManager, pvzRepo, receptionRepo),
+		Receptions: service.NewReception(txManager, pvzRepo, receptionRepo, m),
 		Products:   productService,
 	}, nil
 }

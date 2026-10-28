@@ -17,10 +17,10 @@ endif
 help: ## список команд
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "} {printf "  %-10s %s\n", $$1, $$2}'
 
-up: ## поднять локальный Postgres (compose.yaml)
+up: ## поднять локальные Postgres и Prometheus (compose.yaml)
 	docker compose up -d --wait
 
-down: ## остановить локальный Postgres (данные остаются в volume)
+down: ## остановить Postgres и Prometheus (данные Postgres остаются в volume)
 	docker compose down
 
 build: ## собрать бинарники в bin/

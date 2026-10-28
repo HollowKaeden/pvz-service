@@ -1,6 +1,6 @@
 // Команда pvz — сервис приёмки товаров на ПВЗ.
 //
-//	pvz [serve]       HTTP API на :8080 и gRPC на :3000 (подкоманда по умолчанию)
+//	pvz [serve]       HTTP API на :8080, gRPC на :3000 и метрики на :9000 (подкоманда по умолчанию)
 //	pvz migrate       применить миграции БД и выйти
 //	pvz healthcheck   проверить, что запущенный сервис отвечает (для Docker)
 //	pvz demo-reset    очистить данные и создать эталонный набор демо
@@ -30,6 +30,7 @@ import (
 	"github.com/HollowKaeden/pvz-service/internal/auth"
 	"github.com/HollowKaeden/pvz-service/internal/config"
 	"github.com/HollowKaeden/pvz-service/internal/demo"
+	"github.com/HollowKaeden/pvz-service/internal/metrics"
 	"github.com/HollowKaeden/pvz-service/internal/repository/postgres"
 	"github.com/HollowKaeden/pvz-service/internal/service"
 	grpctransport "github.com/HollowKaeden/pvz-service/internal/transport/grpc"
@@ -108,7 +109,7 @@ func migrate(ctx context.Context, cfg config.Config, log *slog.Logger) error {
 }
 
 // newServices собирает репозитории и сервисы pvz поверх пула соединений.
-func newServices(ctx context.Context, pool *pgxpool.Pool) (demo.Services, error) {
+func newServices(ctx context.Context, pool *pgxpool.Pool, m service.Metrics) (demo.Services, error) {
 	db := postgres.NewDB(pool)
 	txManager, err := manager.New(trmpgx.NewDefaultFactory(pool))
 	if err != nil {
@@ -117,18 +118,18 @@ func newServices(ctx context.Context, pool *pgxpool.Pool) (demo.Services, error)
 	pvzRepo := postgres.NewPVZRepository(db)
 	receptionRepo := postgres.NewReceptionRepository(db)
 	productRepo := postgres.NewProductRepository(db)
-	pvzService, err := service.NewPVZ(ctx, pvzRepo, postgres.NewCityRepository(db), receptionRepo, productRepo)
+	pvzService, err := service.NewPVZ(ctx, pvzRepo, postgres.NewCityRepository(db), receptionRepo, productRepo, m)
 	if err != nil {
 		return demo.Services{}, err
 	}
 	productService, err := service.NewProduct(ctx, txManager, pvzRepo, receptionRepo,
-		productRepo, postgres.NewProductTypeRepository(db))
+		productRepo, postgres.NewProductTypeRepository(db), m)
 	if err != nil {
 		return demo.Services{}, err
 	}
 	return demo.Services{
 		PVZ:        pvzService,
-		Receptions: service.NewReception(txManager, pvzRepo, receptionRepo),
+		Receptions: service.NewReception(txManager, pvzRepo, receptionRepo, m),
 		Products:   productService,
 	}, nil
 }
@@ -180,7 +181,10 @@ func demoReset(ctx context.Context, cfg config.Config, log *slog.Logger) error {
 	}
 	defer pool.Close()
 
-	svc, err := newServices(ctx, pool)
+	// Метрики эталонного набора никто не заберёт: команда отработает и
+	// завершится раньше, чем Prometheus её опросит. Recorder нужен только
+	// потому, что без метрик сервисы не собираются.
+	svc, err := newServices(ctx, pool, metrics.New())
 	if err != nil {
 		return err
 	}
@@ -211,7 +215,8 @@ func serve(ctx context.Context, cfg config.Config, log *slog.Logger) error {
 		}
 	}
 
-	svc, err := newServices(ctx, pool)
+	recorder := metrics.New()
+	svc, err := newServices(ctx, pool, recorder)
 	if err != nil {
 		return err
 	}
@@ -220,6 +225,7 @@ func serve(ctx context.Context, cfg config.Config, log *slog.Logger) error {
 		TrustedProxies: cfg.TrustedProxies,
 		AuthLimit:      cfg.AuthRateLimit,
 		AuthWindow:     cfg.AuthRateWindow,
+		Metrics:        recorder,
 		DB:             pool,
 		Tokens:         tokens,
 		Auth:           service.NewAuth(tokens, postgres.NewUserRepository(postgres.NewDB(pool))),
@@ -244,11 +250,28 @@ func serve(ctx context.Context, cfg config.Config, log *slog.Logger) error {
 		return fmt.Errorf("http: %w", err)
 	}
 
-	grpcSrv := grpctransport.NewServer(log.With(slog.String("server", "grpc")), svc.PVZ)
+	grpcSrv := grpctransport.NewServer(log.With(slog.String("server", "grpc")), svc.PVZ, recorder)
 	grpcLn, err := new(net.ListenConfig).Listen(ctx, "tcp", cfg.GRPCAddr)
 	if err != nil {
 		_ = httpLn.Close()
 		return fmt.Errorf("grpc: %w", err)
+	}
+
+	// Метрики на отдельном порту: в проде он открыт только внутри
+	// Docker-сети, и снаружи /metrics не виден.
+	metricsMux := http.NewServeMux()
+	metricsMux.Handle("GET /metrics", recorder.Handler())
+	metricsSrv := &http.Server{
+		Handler:           metricsMux,
+		ReadHeaderTimeout: 5 * time.Second,
+		WriteTimeout:      10 * time.Second,
+		ErrorLog:          slog.NewLogLogger(log.Handler(), slog.LevelError),
+	}
+	metricsLn, err := new(net.ListenConfig).Listen(ctx, "tcp", cfg.MetricsAddr)
+	if err != nil {
+		_ = httpLn.Close()
+		_ = grpcLn.Close()
+		return fmt.Errorf("metrics: %w", err)
 	}
 
 	g, ctx := errgroup.WithContext(ctx)
@@ -257,6 +280,12 @@ func serve(ctx context.Context, cfg config.Config, log *slog.Logger) error {
 	})
 	g.Go(func() error {
 		return runGRPC(ctx, grpcSrv, grpcLn, log.With(slog.String("server", "grpc")))
+	})
+	g.Go(func() error {
+		if err := runHTTP(ctx, metricsSrv, metricsLn, log.With(slog.String("server", "metrics"))); err != nil {
+			return fmt.Errorf("metrics: %w", err)
+		}
+		return nil
 	})
 
 	err = g.Wait()

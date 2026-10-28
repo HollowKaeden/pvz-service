@@ -25,6 +25,9 @@ type Deps struct {
 	AuthLimit  int
 	AuthWindow time.Duration
 
+	// Metrics учитывает запросы для Prometheus. nil — без метрик.
+	Metrics RequestMetrics
+
 	DB         Pinger
 	Tokens     TokenParser
 	Auth       AuthService
@@ -64,7 +67,11 @@ func NewRouter(log *slog.Logger, deps Deps) http.Handler {
 		},
 	})
 
-	return logRequests(log, deps.TrustedProxies, limitBody(mux))
+	h := limitBody(mux)
+	if deps.Metrics != nil {
+		h = measureRequests(deps.Metrics, h)
+	}
+	return logRequests(log, deps.TrustedProxies, h)
 }
 
 // limitBody ограничивает тело запроса maxBodyBytes: чтение сверх лимита

@@ -9,3 +9,4 @@ coverage.*
 *.out
 *.md
 compose.yaml
+prometheus.yml

@@ -31,7 +31,7 @@ func newListService(t *testing.T) (*PVZ, listMocks) {
 	}
 	cities := newMockCityRepository(t)
 	cities.EXPECT().List(mock.Anything).Return(testCities, nil)
-	s, err := NewPVZ(context.Background(), m.pvz, cities, m.receptions, m.products)
+	s, err := NewPVZ(context.Background(), m.pvz, cities, m.receptions, m.products, newMockMetrics(t))
 	require.NoError(t, err)
 	return s, m
 }

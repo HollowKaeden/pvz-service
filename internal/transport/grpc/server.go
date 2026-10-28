@@ -24,11 +24,23 @@ type PVZService interface {
 	All(ctx context.Context) ([]domain.PVZ, error)
 }
 
-// NewServer собирает gRPC-сервер: метод GetPVZList, reflection и лог каждого
-// вызова. Reflection отдаёт описание методов, поэтому grpcurl работает без
-// proto-файла.
-func NewServer(log *slog.Logger, pvz PVZService) *grpc.Server {
-	srv := grpc.NewServer(grpc.ChainUnaryInterceptor(logCalls(log)))
+// CallMetrics учитывает обработанные вызовы.
+type CallMetrics interface {
+	ObserveGRPC(method, code string, d time.Duration)
+}
+
+// NewServer собирает gRPC-сервер: метод GetPVZList, reflection, лог и
+// метрики каждого вызова (metrics nil — без метрик). Reflection отдаёт
+// описание методов, поэтому grpcurl работает без proto-файла.
+func NewServer(log *slog.Logger, pvz PVZService, metrics CallMetrics) *grpc.Server {
+	// Первый перехватчик внешний: метрики видят код ответа уже после того,
+	// как logCalls превратил неожиданную ошибку в Internal.
+	var interceptors []grpc.UnaryServerInterceptor
+	if metrics != nil {
+		interceptors = append(interceptors, measureCalls(metrics))
+	}
+	interceptors = append(interceptors, logCalls(log))
+	srv := grpc.NewServer(grpc.ChainUnaryInterceptor(interceptors...))
 	pvzv1.RegisterPVZServiceServer(srv, api{pvz: pvz})
 	reflection.Register(srv)
 	return srv
@@ -85,6 +97,18 @@ func logCalls(log *slog.Logger) grpc.UnaryServerInterceptor {
 			slog.String("code", status.Code(err).String()),
 			slog.Float64("duration_ms", float64(time.Since(start).Microseconds())/1000),
 		)
+		return resp, err
+	}
+}
+
+// measureCalls учитывает каждый вызов: метод, код ответа и время обработки.
+// Метод берётся из описания сервера, поэтому набор его значений ограничен:
+// вызов несуществующего метода до перехватчиков не доходит.
+func measureCalls(m CallMetrics) grpc.UnaryServerInterceptor {
+	return func(ctx context.Context, req any, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (any, error) {
+		start := time.Now()
+		resp, err := handler(ctx, req)
+		m.ObserveGRPC(info.FullMethod, status.Code(err).String(), time.Since(start))
 		return resp, err
 	}
 }
