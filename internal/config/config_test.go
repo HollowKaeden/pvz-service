@@ -33,6 +33,7 @@ func TestLoad(t *testing.T) {
 				LogLevel:    slog.LevelInfo,
 				DatabaseURL: dbURL,
 				DBMaxConns:  10,
+				KafkaTopic:  "pvz.reception.closed",
 				JWTSecret:   []byte(secret),
 			},
 		},
@@ -66,6 +67,7 @@ func TestLoad(t *testing.T) {
 				},
 				AuthRateLimit:  10,
 				AuthRateWindow: time.Minute,
+				KafkaTopic:     "pvz.reception.closed",
 			},
 		},
 		{
@@ -79,10 +81,12 @@ func TestLoad(t *testing.T) {
 				"MIGRATE_ON_START": "наверное",
 				"TRUSTED_PROXIES":  "caddy",
 				"AUTH_RATE_LIMIT":  "10",
+				"KAFKA_BROKERS":    "invalid",
+				"KAFKA_TOPIC":      "",
 			},
 			wantErr: []string{
 				"HTTP_ADDR", "GRPC_ADDR", "METRICS_ADDR", "LOG_LEVEL", "DATABASE_URL", "DB_MAX_CONNS", "MIGRATE_ON_START", "JWT_SECRET",
-				"TRUSTED_PROXIES", "AUTH_RATE_LIMIT",
+				"TRUSTED_PROXIES", "AUTH_RATE_LIMIT", "KAFKA_BROKERS", "KAFKA_TOPIC",
 			},
 		},
 		{
@@ -110,7 +114,7 @@ func TestLoad(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			for _, key := range []string{
 				"HTTP_ADDR", "GRPC_ADDR", "METRICS_ADDR", "LOG_LEVEL", "DATABASE_URL", "DB_MAX_CONNS", "MIGRATE_ON_START", "JWT_SECRET",
-				"TRUSTED_PROXIES", "AUTH_RATE_LIMIT",
+				"TRUSTED_PROXIES", "AUTH_RATE_LIMIT", "KAFKA_BROKERS", "KAFKA_TOPIC",
 			} {
 				unsetenv(t, key)
 			}
@@ -129,6 +133,38 @@ func TestLoad(t *testing.T) {
 			}
 			require.NoError(t, err)
 			assert.Equal(t, tt.want, got)
+		})
+	}
+}
+
+func TestKafkaConfig(t *testing.T) {
+	for _, tt := range []struct {
+		brokers string
+		topic   string
+		wantErr bool
+	}{
+		{"localhost:9092, [::1]:9092", "pvz.reception.closed", false},
+		{"kafka", "topic", true},
+		{"kafka:0", "topic", true},
+		{"kafka:70000", "topic", true},
+		{"kafka:9092,", "topic", true},
+		{"kafka:9092", "", true},
+		{"kafka:9092", "..", true},
+		{"kafka:9092", "неверный/топик", true},
+	} {
+		t.Run(tt.brokers+"/"+tt.topic, func(t *testing.T) {
+			t.Setenv("DATABASE_URL", "postgres://test")
+			t.Setenv("JWT_SECRET", "0123456789abcdef0123456789abcdef")
+			t.Setenv("KAFKA_BROKERS", tt.brokers)
+			t.Setenv("KAFKA_TOPIC", tt.topic)
+			cfg, err := Load()
+			if tt.wantErr {
+				require.ErrorContains(t, err, "KAFKA_")
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, []string{"localhost:9092", "[::1]:9092"}, cfg.KafkaBrokers)
+			assert.Equal(t, tt.topic, cfg.KafkaTopic)
 		})
 	}
 }

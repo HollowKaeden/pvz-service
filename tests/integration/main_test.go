@@ -153,7 +153,7 @@ func newServices(ctx context.Context, pool *pgxpool.Pool, m service.Metrics) (de
 	}
 	return demo.Services{
 		PVZ:        pvzService,
-		Receptions: service.NewReception(txManager, pvzRepo, receptionRepo, m),
+		Receptions: service.NewReception(txManager, pvzRepo, receptionRepo, productRepo, postgres.NewOutboxRepository(db), m),
 		Products:   productService,
 	}, nil
 }
@@ -161,7 +161,7 @@ func newServices(ctx context.Context, pool *pgxpool.Pool, m service.Metrics) (de
 // resetDB очищает таблицы с данными. Справочники не трогает.
 func resetDB(t *testing.T) {
 	t.Helper()
-	_, err := pool.Exec(context.Background(), `TRUNCATE products, receptions, pvz, users`)
+	_, err := pool.Exec(context.Background(), `TRUNCATE products, receptions, pvz, users, outbox`)
 	require.NoError(t, err)
 }
 

@@ -28,6 +28,9 @@ var (
 	// ErrReceptionEmpty — в открытой приёмке нет товаров, закрывать её нельзя.
 	ErrReceptionEmpty = errors.New("нельзя закрыть приёмку без товаров")
 
+	// ErrReceptionTooLarge — снимок товаров не поместится в сообщение Kafka.
+	ErrReceptionTooLarge = errors.New("слишком много товаров для закрытия приёмки: удалите последние товары и повторите")
+
 	// ErrProductTypeNotAllowed — такого типа товара нет в справочнике.
 	ErrProductTypeNotAllowed = errors.New("недопустимый тип товара")
 

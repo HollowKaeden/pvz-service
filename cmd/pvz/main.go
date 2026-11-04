@@ -30,6 +30,7 @@ import (
 	"github.com/HollowKaeden/pvz-service/internal/auth"
 	"github.com/HollowKaeden/pvz-service/internal/config"
 	"github.com/HollowKaeden/pvz-service/internal/demo"
+	"github.com/HollowKaeden/pvz-service/internal/events"
 	"github.com/HollowKaeden/pvz-service/internal/metrics"
 	"github.com/HollowKaeden/pvz-service/internal/repository/postgres"
 	"github.com/HollowKaeden/pvz-service/internal/service"
@@ -129,7 +130,7 @@ func newServices(ctx context.Context, pool *pgxpool.Pool, m service.Metrics) (de
 	}
 	return demo.Services{
 		PVZ:        pvzService,
-		Receptions: service.NewReception(txManager, pvzRepo, receptionRepo, m),
+		Receptions: service.NewReception(txManager, pvzRepo, receptionRepo, productRepo, postgres.NewOutboxRepository(db), m),
 		Products:   productService,
 	}, nil
 }
@@ -216,6 +217,20 @@ func serve(ctx context.Context, cfg config.Config, log *slog.Logger) error {
 	}
 
 	recorder := metrics.New()
+	var relay *events.Relay
+	if len(cfg.KafkaBrokers) > 0 {
+		publisher, err := events.NewKafka(cfg.KafkaBrokers, cfg.KafkaTopic)
+		if err != nil {
+			return err
+		}
+		defer publisher.Close()
+		tx, err := manager.New(trmpgx.NewDefaultFactory(pool))
+		if err != nil {
+			return fmt.Errorf("транзакции relay: %w", err)
+		}
+		relay = events.NewRelay(tx, postgres.NewOutboxRepository(postgres.NewDB(pool)), publisher, recorder,
+			log.With(slog.String("worker", "outbox")))
+	}
 	svc, err := newServices(ctx, pool, recorder)
 	if err != nil {
 		return err
@@ -275,6 +290,9 @@ func serve(ctx context.Context, cfg config.Config, log *slog.Logger) error {
 	}
 
 	g, ctx := errgroup.WithContext(ctx)
+	if relay != nil {
+		g.Go(func() error { return relay.Run(ctx) })
+	}
 	g.Go(func() error {
 		return runHTTP(ctx, httpSrv, httpLn, log.With(slog.String("server", "http")))
 	})

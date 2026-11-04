@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
@@ -9,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/HollowKaeden/pvz-service/internal/domain"
+	"github.com/HollowKaeden/pvz-service/internal/eventschema"
 )
 
 // ReceptionRepository хранит приёмки.
@@ -18,8 +20,6 @@ type ReceptionRepository interface {
 	// возвращает domain.ErrNoOpenReception.
 	LockOpen(ctx context.Context, pvzID uuid.UUID) (domain.Reception, error)
 	SetStatus(ctx context.Context, id uuid.UUID, status domain.ReceptionStatus) error
-	// HasProducts сообщает, есть ли в приёмке хотя бы один товар.
-	HasProducts(ctx context.Context, id uuid.UUID) (bool, error)
 	// ListByPVZ возвращает приёмки этих ПВЗ, новые сверху. Если период задан,
 	// только приёмки из периода.
 	ListByPVZ(ctx context.Context, pvzIDs []uuid.UUID, period domain.Period) ([]domain.Reception, error)
@@ -37,6 +37,8 @@ type Reception struct {
 	tx         TxManager
 	pvz        PVZRepository
 	receptions ReceptionRepository
+	products   ProductRepository
+	outbox     OutboxRepository
 	metrics    Metrics
 
 	now   func() time.Time
@@ -44,9 +46,12 @@ type Reception struct {
 }
 
 // NewReception создаёт сервис приёмок.
-func NewReception(tx TxManager, pvz PVZRepository, receptions ReceptionRepository, metrics Metrics) *Reception {
+func NewReception(tx TxManager, pvz PVZRepository, receptions ReceptionRepository,
+	products ProductRepository, outbox OutboxRepository, metrics Metrics,
+) *Reception {
 	return &Reception{
 		tx: tx, pvz: pvz, receptions: receptions, metrics: metrics,
+		products: products, outbox: outbox,
 		now: time.Now, newID: uuid.NewV7,
 	}
 }
@@ -116,16 +121,48 @@ func (s *Reception) Close(ctx context.Context, pvzID uuid.UUID) (domain.Receptio
 			return err
 		}
 
-		hasProducts, err := s.receptions.HasProducts(ctx, rec.ID)
+		products, err := s.products.ListByReceptions(ctx, []uuid.UUID{rec.ID})
 		if err != nil {
 			return fmt.Errorf("проверка товаров приёмки: %w", err)
 		}
-		if !hasProducts {
+		if len(products) == 0 {
 			return domain.ErrReceptionEmpty
+		}
+		pvz, err := s.pvz.Get(ctx, pvzID)
+		if err != nil {
+			return fmt.Errorf("ПВЗ закрытой приёмки: %w", err)
+		}
+		id, err := s.newID()
+		if err != nil {
+			return fmt.Errorf("id события: %w", err)
+		}
+		closedAt := s.now().UTC().Truncate(time.Microsecond)
+		items := make([]eventschema.Product, len(products))
+		for i, p := range products {
+			items[i] = eventschema.Product{ID: p.ID, Type: p.Type}
+		}
+		event := eventschema.Event{
+			ID: id, Type: eventschema.ReceptionClosedType, Version: eventschema.Version, OccurredAt: closedAt,
+			Payload: eventschema.ReceptionClosed{
+				ReceptionID: rec.ID, PVZID: pvzID, City: pvz.City,
+				OpenedAt: rec.DateTime, ClosedAt: closedAt, Products: items,
+			},
+		}
+		// Оставляем запас до 1 МБ Kafka на ключ и служебные поля. Иначе
+		// слишком большое событие навсегда задержит всю очередь relay.
+		body, err := json.Marshal(event)
+		if err != nil {
+			return fmt.Errorf("JSON события закрытия: %w", err)
+		}
+		if len(body) > 900*1024 {
+			return domain.ErrReceptionTooLarge
 		}
 
 		if err := s.receptions.SetStatus(ctx, rec.ID, domain.ReceptionClosed); err != nil {
 			return fmt.Errorf("закрытие приёмки: %w", err)
+		}
+		if err := s.outbox.Add(ctx, event); err != nil {
+			return fmt.Errorf("событие закрытия приёмки: %w", err)
 		}
 		rec.Status = domain.ReceptionClosed
 		return nil

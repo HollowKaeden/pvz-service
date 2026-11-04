@@ -33,6 +33,7 @@ type Recorder struct {
 	receptionsOpened prometheus.Counter
 	receptionsClosed prometheus.Counter
 	productsAdded    *prometheus.CounterVec
+	outboxPending    prometheus.Gauge
 }
 
 // New создаёт реестр со всеми метриками pvz и стандартными метриками Go и
@@ -47,6 +48,10 @@ func New() *Recorder {
 
 	return &Recorder{
 		registry: reg,
+		outboxPending: f.NewGauge(prometheus.GaugeOpts{
+			Name: "pvz_outbox_pending",
+			Help: "Событий, ожидающих подтверждения Kafka.",
+		}),
 		// Отдельный счётчик запросов не нужен: у гистограммы есть _count.
 		httpDuration: f.NewHistogramVec(prometheus.HistogramOpts{
 			Name:    "pvz_http_request_duration_seconds",
@@ -77,6 +82,9 @@ func New() *Recorder {
 		}, []string{"type"}),
 	}
 }
+
+// OutboxPending записывает число ещё не отправленных событий.
+func (r *Recorder) OutboxPending(n int64) { r.outboxPending.Set(float64(n)) }
 
 // Handler отдаёт метрики в формате Prometheus.
 func (r *Recorder) Handler() http.Handler {

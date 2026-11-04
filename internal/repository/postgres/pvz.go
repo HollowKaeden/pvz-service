@@ -56,6 +56,23 @@ func (r *PVZRepository) Lock(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
+// Get возвращает ПВЗ с названием города из справочника.
+func (r *PVZRepository) Get(ctx context.Context, id uuid.UUID) (domain.PVZ, error) {
+	var p domain.PVZ
+	err := r.db.conn(ctx).QueryRow(ctx, `
+		SELECT p.id, p.registration_date, c.name FROM pvz p
+		JOIN cities c ON c.id = p.city_id WHERE p.id = $1`, id).
+		Scan(&p.ID, &p.RegistrationDate, &p.City)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return domain.PVZ{}, domain.ErrPVZNotFound
+	}
+	if err != nil {
+		return domain.PVZ{}, fmt.Errorf("select pvz: %w", err)
+	}
+	p.RegistrationDate = p.RegistrationDate.UTC()
+	return p, nil
+}
+
 // Exists сообщает, есть ли ПВЗ с таким id.
 func (r *PVZRepository) Exists(ctx context.Context, id uuid.UUID) (bool, error) {
 	var exists bool

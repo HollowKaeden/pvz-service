@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net"
 	"net/netip"
 	"os"
 	"strconv"
@@ -50,6 +51,12 @@ type Config struct {
 	// Не задано — лимит выключен.
 	AuthRateLimit  int
 	AuthRateWindow time.Duration
+
+	// KafkaBrokers — адреса брокеров через запятую (KAFKA_BROKERS).
+	// Не задано — relay выключен, события остаются в outbox.
+	KafkaBrokers []string
+	// KafkaTopic — топик закрытых приёмок (KAFKA_TOPIC).
+	KafkaTopic string
 }
 
 // minJWTSecretLen — для HS256 ключ должен быть не короче самой подписи, 256 бит.
@@ -64,6 +71,7 @@ func Load() (Config, error) {
 		MetricsAddr: envOr("METRICS_ADDR", ":9000"),
 		DatabaseURL: os.Getenv("DATABASE_URL"),
 		JWTSecret:   []byte(os.Getenv("JWT_SECRET")),
+		KafkaTopic:  envOr("KAFKA_TOPIC", "pvz.reception.closed"),
 	}
 
 	var errs []error
@@ -110,6 +118,25 @@ func Load() (Config, error) {
 	cfg.AuthRateLimit, cfg.AuthRateWindow, err = parseRate(os.Getenv("AUTH_RATE_LIMIT"))
 	if err != nil {
 		errs = append(errs, fmt.Errorf("AUTH_RATE_LIMIT: %w", err))
+	}
+	if raw := os.Getenv("KAFKA_BROKERS"); raw != "" {
+		for _, broker := range strings.Split(raw, ",") {
+			broker = strings.TrimSpace(broker)
+			host, port, parseErr := net.SplitHostPort(broker)
+			n, portErr := strconv.Atoi(port)
+			if parseErr != nil || host == "" || portErr != nil || n < 1 || n > 65535 {
+				errs = append(errs, fmt.Errorf("KAFKA_BROKERS: нужен адрес host:port, получено %q", broker))
+				continue
+			}
+			cfg.KafkaBrokers = append(cfg.KafkaBrokers, broker)
+		}
+	}
+	if cfg.KafkaTopic == "" || len(cfg.KafkaTopic) > 249 || cfg.KafkaTopic == "." || cfg.KafkaTopic == ".." ||
+		strings.ContainsFunc(cfg.KafkaTopic, func(r rune) bool {
+			valid := r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r >= '0' && r <= '9' || r == '.' || r == '_' || r == '-'
+			return !valid
+		}) {
+		errs = append(errs, errors.New("KAFKA_TOPIC: нужно имя до 249 символов из букв ASCII, цифр, '.', '_' и '-'"))
 	}
 
 	if err := errors.Join(errs...); err != nil {

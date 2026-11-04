@@ -25,6 +25,8 @@ func TestRecorder(t *testing.T) {
 	r.ReceptionOpened()
 	r.ReceptionClosed()
 	r.ProductAdded("обувь")
+	r.OutboxPending(3)
+	r.OutboxPending(2)
 
 	assert.InDelta(t, 2, testutil.ToFloat64(r.pvzCreated.WithLabelValues("Москва")), 0)
 	assert.InDelta(t, 1, testutil.ToFloat64(r.pvzCreated.WithLabelValues("Казань")), 0)
@@ -43,6 +45,7 @@ func TestRecorder(t *testing.T) {
 		`pvz_receptions_opened_total 1`,
 		`pvz_receptions_closed_total 1`,
 		`pvz_products_added_total{type="обувь"} 1`,
+		`pvz_outbox_pending 2`,
 	} {
 		assert.Contains(t, body, line+"\n")
 	}

@@ -5,6 +5,8 @@ import (
 	"errors"
 	"testing"
 
+	"github.com/google/uuid"
+
 	"github.com/stretchr/testify/mock"
 	"github.com/stretchr/testify/require"
 
@@ -38,7 +40,7 @@ func TestMetricsNotCountedWhenCommitFails(t *testing.T) {
 		pvz.EXPECT().Lock(inTx, testPVZID).Return(nil)
 		receptions.EXPECT().LockOpen(inTx, testPVZID).Return(domain.Reception{}, domain.ErrNoOpenReception)
 		receptions.EXPECT().Create(inTx, mock.Anything).Return(nil)
-		s := NewReception(newCommitFailTx(t, errCommit), pvz, receptions, newMockMetrics(t))
+		s := NewReception(newCommitFailTx(t, errCommit), pvz, receptions, newMockProductRepository(t), newMockOutboxRepository(t), newMockMetrics(t))
 
 		_, err := s.Open(context.Background(), testPVZID)
 
@@ -47,10 +49,15 @@ func TestMetricsNotCountedWhenCommitFails(t *testing.T) {
 
 	t.Run("закрытие приёмки", func(t *testing.T) {
 		receptions := newMockReceptionRepository(t)
+		products := newMockProductRepository(t)
+		pvz := newMockPVZRepository(t)
+		outbox := newMockOutboxRepository(t)
 		receptions.EXPECT().LockOpen(inTx, testPVZID).Return(openReception, nil)
-		receptions.EXPECT().HasProducts(inTx, testReceptionID).Return(true, nil)
+		products.EXPECT().ListByReceptions(inTx, []uuid.UUID{testReceptionID}).Return([]domain.Product{{ID: uuid.New(), Type: "обувь"}}, nil)
+		pvz.EXPECT().Get(inTx, testPVZID).Return(domain.PVZ{City: "Москва"}, nil)
 		receptions.EXPECT().SetStatus(inTx, testReceptionID, domain.ReceptionClosed).Return(nil)
-		s := NewReception(newCommitFailTx(t, errCommit), newMockPVZRepository(t), receptions, newMockMetrics(t))
+		outbox.EXPECT().Add(inTx, mock.Anything).Return(nil)
+		s := NewReception(newCommitFailTx(t, errCommit), pvz, receptions, products, outbox, newMockMetrics(t))
 
 		_, err := s.Close(context.Background(), testPVZID)
 

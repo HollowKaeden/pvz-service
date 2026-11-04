@@ -4,6 +4,7 @@ package integration
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"sync"
 	"testing"
@@ -12,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/HollowKaeden/pvz-service/internal/domain"
+	"github.com/HollowKaeden/pvz-service/internal/eventschema"
 )
 
 // request — один запрос для parallel.
@@ -92,7 +94,7 @@ func withoutOpenReceptionIndex(t *testing.T) {
 	t.Cleanup(func() {
 		// Если тест упал, в таблице могут остаться две открытые приёмки на
 		// одном ПВЗ, и индекс не создастся. Данные теста больше не нужны.
-		_, err := pool.Exec(ctx, `TRUNCATE products, receptions, pvz`)
+		_, err := pool.Exec(ctx, `TRUNCATE products, receptions, pvz, outbox`)
 		require.NoError(t, err)
 		_, err = pool.Exec(ctx,
 			`CREATE UNIQUE INDEX receptions_one_open_per_pvz_idx ON receptions (pvz_id) WHERE status_id = 1`)
@@ -149,4 +151,9 @@ func TestAddProductsWhileClosing(t *testing.T) {
 		}
 	}
 	assert.Len(t, productTypesInDB(t, pvzID), added)
+	var body []byte
+	require.NoError(t, pool.QueryRow(t.Context(), `SELECT body FROM outbox WHERE pvz_id = $1`, pvzID).Scan(&body))
+	var event eventschema.Event
+	require.NoError(t, json.Unmarshal(body, &event))
+	assert.Len(t, event.Payload.Products, added, "снимок совпадает с составом под блокировкой")
 }

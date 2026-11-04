@@ -1,5 +1,5 @@
-# mockery v3: моки интерфейсов, которые объявлены в service, для тестов
-# сервисов. Моки лежат рядом с интерфейсами в mocks_test.go и в бинарник не
+# mockery v3: моки интерфейсов service и events для тестов сервисов и relay.
+# Моки лежат рядом с интерфейсами в mocks_test.go и в бинарник не
 # попадают. Запуск: make generate.
 all: false
 dir: "{{.InterfaceDir}}"
@@ -11,5 +11,8 @@ formatter: goimports
 log-level: warn
 packages:
   github.com/HollowKaeden/pvz-service/internal/service:
+    config:
+      all: true
+  github.com/HollowKaeden/pvz-service/internal/events:
     config:
       all: true

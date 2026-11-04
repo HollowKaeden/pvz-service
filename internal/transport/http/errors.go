@@ -52,6 +52,7 @@ func domainStatus(err error) (int, bool) {
 		errors.Is(err, domain.ErrReceptionAlreadyOpen),
 		errors.Is(err, domain.ErrNoOpenReception),
 		errors.Is(err, domain.ErrReceptionEmpty),
+		errors.Is(err, domain.ErrReceptionTooLarge),
 		errors.Is(err, domain.ErrProductTypeNotAllowed),
 		errors.Is(err, domain.ErrNoProductsToDelete),
 		errors.Is(err, domain.ErrInvalidListParams),

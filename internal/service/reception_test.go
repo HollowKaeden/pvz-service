@@ -12,6 +12,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/HollowKaeden/pvz-service/internal/domain"
+	"github.com/HollowKaeden/pvz-service/internal/eventschema"
 )
 
 // txKey помечает context, который передан внутрь транзакции.
@@ -127,7 +128,7 @@ func TestReceptionOpen(t *testing.T) {
 			if tt.wantErr == nil {
 				metrics.EXPECT().ReceptionOpened().Once()
 			}
-			s := NewReception(newTestTx(t, tt.txErr), pvz, receptions, metrics)
+			s := NewReception(newTestTx(t, tt.txErr), pvz, receptions, newMockProductRepository(t), newMockOutboxRepository(t), metrics)
 			s.now = func() time.Time { return now }
 			s.newID = func() (uuid.UUID, error) { return testReceptionID, nil }
 
@@ -149,6 +150,9 @@ func TestReceptionOpen(t *testing.T) {
 }
 
 func TestReceptionClose(t *testing.T) {
+	eventID := uuid.New()
+	productID := uuid.New()
+	closedAt := time.Date(2026, 11, 4, 12, 30, 0, 0, time.UTC)
 	open := domain.Reception{
 		ID:       testReceptionID,
 		PVZID:    testPVZID,
@@ -171,6 +175,10 @@ func TestReceptionClose(t *testing.T) {
 		hasErr      error
 		callsSet    bool
 		setErr      error
+		cityErr     error
+		idErr       error
+		eventErr    error
+		oversize    bool
 		wantErr     error
 		wantErrMsg  string
 	}{
@@ -200,6 +208,10 @@ func TestReceptionClose(t *testing.T) {
 		{name: "транзакция не открылась", txErr: errDB, wantErr: errDB},
 		{name: "ошибка БД при поиске открытой приёмки", findErr: errDB, wantErr: errDB},
 		{name: "ошибка БД при смене статуса", callsHas: true, callsSet: true, setErr: errDB, wantErr: errDB},
+		{name: "ошибка чтения города", callsHas: true, callsSet: true, cityErr: errDB, wantErr: errDB},
+		{name: "ошибка UUID события", callsHas: true, callsSet: true, idErr: errDB, wantErr: errDB},
+		{name: "ошибка записи события", callsHas: true, callsSet: true, eventErr: errDB, wantErr: errDB},
+		{name: "событие не помещается в Kafka", callsHas: true, callsSet: true, oversize: true, wantErr: domain.ErrReceptionTooLarge},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -215,17 +227,44 @@ func TestReceptionClose(t *testing.T) {
 			if tt.callsExists {
 				pvz.EXPECT().Exists(inTx, testPVZID).Return(tt.exists, tt.existsErr)
 			}
+			products := newMockProductRepository(t)
+			outbox := newMockOutboxRepository(t)
 			if tt.callsHas {
-				receptions.EXPECT().HasProducts(inTx, testReceptionID).Return(!tt.empty && tt.hasErr == nil, tt.hasErr)
+				var items []domain.Product
+				if !tt.empty && tt.hasErr == nil {
+					items = []domain.Product{{ID: productID, Type: "обувь"}}
+					if tt.oversize {
+						items = make([]domain.Product, 15000)
+						for i := range items {
+							items[i] = domain.Product{ID: productID, Type: "обувь"}
+						}
+					}
+				}
+				products.EXPECT().ListByReceptions(inTx, []uuid.UUID{testReceptionID}).Return(items, tt.hasErr)
 			}
 			if tt.callsSet {
+				pvz.EXPECT().Get(inTx, testPVZID).Return(domain.PVZ{ID: testPVZID, City: "Москва"}, tt.cityErr)
+			}
+			if tt.callsSet && tt.cityErr == nil && tt.idErr == nil && !tt.oversize {
 				receptions.EXPECT().SetStatus(inTx, testReceptionID, domain.ReceptionClosed).Return(tt.setErr)
+				if tt.setErr == nil {
+					outbox.EXPECT().Add(inTx, eventschema.Event{
+						ID: eventID, Type: eventschema.ReceptionClosedType, Version: 1, OccurredAt: closedAt,
+						Payload: eventschema.ReceptionClosed{
+							ReceptionID: testReceptionID, PVZID: testPVZID, City: "Москва",
+							OpenedAt: open.DateTime, ClosedAt: closedAt,
+							Products: []eventschema.Product{{ID: productID, Type: "обувь"}},
+						},
+					}).Return(tt.eventErr)
+				}
 			}
 			metrics := newMockMetrics(t)
 			if tt.wantErr == nil {
 				metrics.EXPECT().ReceptionClosed().Once()
 			}
-			s := NewReception(newTestTx(t, tt.txErr), pvz, receptions, metrics)
+			s := NewReception(newTestTx(t, tt.txErr), pvz, receptions, products, outbox, metrics)
+			s.now = func() time.Time { return closedAt }
+			s.newID = func() (uuid.UUID, error) { return eventID, tt.idErr }
 
 			got, err := s.Close(context.Background(), testPVZID)
 

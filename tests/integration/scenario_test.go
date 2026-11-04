@@ -4,6 +4,7 @@ package integration
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"testing"
 
@@ -12,6 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/HollowKaeden/pvz-service/internal/domain"
+	"github.com/HollowKaeden/pvz-service/internal/eventschema"
 	"github.com/HollowKaeden/pvz-service/internal/transport/http/oapi"
 )
 
@@ -46,6 +48,15 @@ func TestReceptionScenario(t *testing.T) {
 	mustCall(t, http.StatusOK, http.MethodPost, "/pvz/"+pvzID.String()+"/close_last_reception", employee, nil, &closed)
 	assert.Equal(t, *reception.ID, *closed.ID)
 	assert.Equal(t, oapi.ReceptionStatusClose, closed.Status)
+	var body []byte
+	require.NoError(t, pool.QueryRow(t.Context(), `SELECT body FROM outbox WHERE pvz_id = $1`, pvzID).Scan(&body))
+	var event eventschema.Event
+	require.NoError(t, json.Unmarshal(body, &event))
+	require.Len(t, event.Payload.Products, len(added))
+	for i, item := range event.Payload.Products {
+		assert.Equal(t, added[i], item.ID)
+		assert.Equal(t, productTypes[i%3], item.Type)
+	}
 
 	// После закрытия товары не добавляются и не удаляются.
 	status, _ := call(t, http.MethodPost, "/products", employee, map[string]any{"pvzId": pvzID, "type": "обувь"})
