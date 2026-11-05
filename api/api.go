@@ -8,3 +8,8 @@ import _ "embed"
 //
 //go:embed openapi.yaml
 var OpenAPI []byte
+
+// Billing — отдельный публичный контракт начислений.
+//
+//go:embed billing.yaml
+var Billing []byte

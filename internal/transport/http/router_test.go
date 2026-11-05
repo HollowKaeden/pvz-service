@@ -598,7 +598,8 @@ func TestDocs(t *testing.T) {
 		rec := serve(h, http.MethodGet, "/docs/", "", "")
 		assert.Equal(t, http.StatusOK, rec.Code)
 		assert.Contains(t, rec.Header().Get("Content-Type"), "text/html")
-		assert.Contains(t, rec.Body.String(), `url: "openapi.yaml"`)
+		assert.Contains(t, rec.Body.String(), `<option value="openapi.yaml">`)
+		assert.Contains(t, rec.Body.String(), `<option value="billing.yaml">`)
 	})
 	t.Run("/docs без слеша", func(t *testing.T) {
 		rec := serve(h, http.MethodGet, "/docs", "", "")
@@ -610,6 +611,11 @@ func TestDocs(t *testing.T) {
 		rec := serve(h, http.MethodGet, "/docs/openapi.yaml", "", "")
 		assert.Equal(t, http.StatusOK, rec.Code)
 		assert.Equal(t, api.OpenAPI, rec.Body.Bytes())
+	})
+	t.Run("спека billing доступна без токена", func(t *testing.T) {
+		rec := serve(h, http.MethodGet, "/docs/billing.yaml", "", "")
+		assert.Equal(t, http.StatusOK, rec.Code)
+		assert.Equal(t, api.Billing, rec.Body.Bytes())
 	})
 	t.Run("лишние пути под /docs/ не отдаются", func(t *testing.T) {
 		rec := serve(h, http.MethodGet, "/docs/whatever", "", "")
@@ -635,6 +641,7 @@ func TestFrontend(t *testing.T) {
 	}{
 		{"/assets/app.js", "javascript"},
 		{"/assets/api.js", "javascript"},
+		{"/assets/billing.js", "javascript"},
 		{"/assets/dom.js", "javascript"},
 		{"/assets/style.css", "text/css"},
 		{"/assets/favicon.svg", "image/svg+xml"},

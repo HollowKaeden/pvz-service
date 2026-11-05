@@ -1,0 +1,9 @@
+package: oapi
+generate:
+  models: true
+  std-http-server: true
+  strict-server: true
+output: oapi.gen.go
+output-options:
+  name-normalizer: ToCamelCaseWithInitialisms
+  additional-initialisms: [PVZ]

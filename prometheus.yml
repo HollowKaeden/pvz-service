@@ -9,3 +9,6 @@ scrape_configs:
     static_configs:
       # pvz запущен не в Docker, а на самой машине.
       - targets: ["host.docker.internal:9000"]
+  - job_name: billing
+    static_configs:
+      - targets: ["host.docker.internal:9001"]

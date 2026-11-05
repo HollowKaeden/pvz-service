@@ -1,4 +1,4 @@
-.PHONY: help up down build run migrate generate lint fmt test test-int cover hooks
+.PHONY: help up down build run run-billing billing-rebuild migrate generate lint fmt test test-int cover hooks
 
 # Локальные настройки (cp .env.example .env) уходят в окружение команд.
 # Значения из .env важнее переменных, заданных в shell.
@@ -19,6 +19,7 @@ help: ## список команд
 
 up: ## поднять локальные Postgres, Kafka и Prometheus (compose.yaml)
 	docker compose up -d --wait
+	docker compose exec -T postgres sh /docker-entrypoint-initdb.d/billing.sh
 
 down: ## остановить локальные зависимости (данные остаются в volume)
 	docker compose down
@@ -29,8 +30,15 @@ build: ## собрать бинарники в bin/
 run: ## запустить pvz локально (настройки из .env, см. README)
 	go run ./cmd/pvz
 
+run-billing: ## запустить billing (во втором терминале)
+	go run ./cmd/billing
+
+billing-rebuild: ## очистить проекцию и перемотать Kafka (сначала остановить billing)
+	go run ./cmd/billing rebuild
+
 migrate: ## применить миграции БД
 	go run ./cmd/pvz migrate
+	go run ./cmd/billing migrate
 
 generate: ## кодогенерация: HTTP-слой (oapi-codegen) и моки (mockery)
 	go generate ./...

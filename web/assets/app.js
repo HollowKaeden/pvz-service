@@ -2,6 +2,7 @@
 // контракта (api/openapi.yaml); своих ручек у фронтенда нет.
 
 import { ApiError, onRequest, request } from './api.js';
+import { initBilling, watchPayout } from './billing.js';
 import { formatDate, formatTime, h, plural } from './dom.js';
 
 // Значения enum'ов из контракта: справочники не меняются без миграции и
@@ -220,7 +221,8 @@ async function act(pvzID, action, arg) {
   state.busy = true;
   renderList();
   try {
-    await request(method, path, { token: state.token, body });
+    const result = await request(method, path, { token: state.token, body });
+    if (action === 'close') watchPayout(pvzID, result.id);
     state.pvzMessage = { id: pvzID, text: done };
   } catch (err) {
     state.busy = false;
@@ -610,6 +612,7 @@ function init() {
 
   showGrpcurl();
   onRequest(logEntry);
+  initBilling();
   $('log-clear').addEventListener('click', () => {
     $('log').replaceChildren();
     $('log-empty').hidden = false;

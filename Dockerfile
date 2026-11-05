@@ -13,12 +13,14 @@ COPY migrations ./migrations
 COPY web ./web
 # Статическая сборка без cgo: бинарнику не нужны библиотеки из образа.
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/pvz ./cmd/pvz
+RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/billing ./cmd/billing
 
 # distroless: ни shell, ни пакетного менеджера, только бинарник и сертификаты.
 # Тег nonroot: процесс работает не от root. Healthcheck в compose вызывает
 # сам бинарник (pvz healthcheck), wget и curl тут нет.
 FROM gcr.io/distroless/static-debian13:nonroot
 COPY --from=build /out/pvz /usr/local/bin/pvz
-EXPOSE 8080 3000 9000
+COPY --from=build /out/billing /usr/local/bin/billing
+EXPOSE 8080 8081 3000 9000 9001
 ENTRYPOINT ["pvz"]
 CMD ["serve"]

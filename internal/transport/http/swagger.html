@@ -9,9 +9,20 @@
         href="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.33.1/swagger-ui.css"
         integrity="sha384-Ov4/wv3j2bmct8cDc5X4ngJZohVPzEmc6uDPH8WeljUxO5vtoykvMEfbu9Vh6RaW"
         crossorigin="anonymous">
-  <style>body { margin: 0; }</style>
+  <style>
+    body { margin: 0; }
+    .spec-picker { padding: 16px 24px; background: #1b1b1b; color: #fff; font: 16px sans-serif; }
+    .spec-picker select { margin-left: 12px; padding: 8px; max-width: 65vw; font: inherit; }
+  </style>
 </head>
 <body>
+  <div class="spec-picker">
+    <label for="spec">Спецификация</label>
+    <select id="spec" disabled>
+      <option value="openapi.yaml">ПВЗ</option>
+      <option value="billing.yaml">Начисления</option>
+    </select>
+  </div>
   <div id="swagger-ui"></div>
   <script src="https://cdn.jsdelivr.net/npm/swagger-ui-dist@5.33.1/swagger-ui-bundle.js"
           integrity="sha384-ZPehFMQommnnuaZ4rpxgkgTT2DKFVp4hZC/7pLit+9Lek9T1YGSo23eHFbvNkXkw"
@@ -19,11 +30,19 @@
   <script>
     // В контракте нет servers, поэтому «Try it out» ходит на тот же origin,
     // с которого открыта страница: локально, за Caddy, в проде.
+    const picker = document.getElementById('spec');
     window.ui = SwaggerUIBundle({
-      url: "openapi.yaml",
+      url: picker.value,
       dom_id: "#swagger-ui",
       deepLinking: true,
       persistAuthorization: true,
+      onComplete: () => { picker.disabled = false; },
+    });
+    // Те же действия, что использует штатный TopBar Swagger UI. Экземпляр
+    // один: незавершённая загрузка старой спеки не создаёт второе дерево UI.
+    picker.addEventListener('change', () => {
+      window.ui.specActions.updateUrl(picker.value);
+      window.ui.specActions.download(picker.value);
     });
   </script>
 </body>

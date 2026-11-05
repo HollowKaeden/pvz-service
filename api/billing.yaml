@@ -1,0 +1,108 @@
+openapi: 3.0.3
+info:
+  title: Начисления за приёмку товаров
+  version: 1.0.0
+  description: Публичное демо. Суммы в целых копейках, начисления приходят асинхронно через Kafka.
+paths:
+  /billing/payouts:
+    get:
+      operationId: listBalances
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Балансы ПВЗ, стабильный порядок по UUID
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Balance' }
+        '400': { $ref: '#/components/responses/Error' }
+        '500': { $ref: '#/components/responses/Error' }
+  /billing/payouts/{pvzId}:
+    get:
+      operationId: getJournal
+      parameters:
+        - { name: pvzId, in: path, required: true, schema: { type: string, format: uuid } }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Журнал ПВЗ, новые начисления сверху; до первого начисления пустой массив
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Payout' }
+        '400': { $ref: '#/components/responses/Error' }
+        '500': { $ref: '#/components/responses/Error' }
+  /billing/rates:
+    get:
+      operationId: getRates
+      responses:
+        '200':
+          description: Ставки, загруженные процессом (для изменения ставок нужен рестарт)
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/Rate' }
+        '500': { $ref: '#/components/responses/Error' }
+  /billing/health:
+    get:
+      operationId: getHealth
+      responses:
+        '200':
+          description: БД доступна; доступность Kafka не влияет на health
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Health' }
+        '503': { $ref: '#/components/responses/Error' }
+components:
+  parameters:
+    Page: { name: page, in: query, schema: { type: integer, default: 1, minimum: 1, maximum: 10000 } }
+    Limit: { name: limit, in: query, schema: { type: integer, default: 10, minimum: 1, maximum: 30 } }
+  responses:
+    Error:
+      description: Ошибка
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/Error' }
+  schemas:
+    Error:
+      type: object
+      required: [message]
+      properties:
+        message: { type: string }
+    Health:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [ok] }
+    Rate:
+      type: object
+      required: [product_type, amount_kopecks]
+      properties:
+        product_type: { type: string }
+        amount_kopecks: { type: integer, format: int64 }
+    Balance:
+      type: object
+      required: [pvz_id, city, amount_kopecks, updated_at]
+      properties:
+        pvz_id: { type: string, format: uuid }
+        city: { type: string }
+        amount_kopecks: { type: integer, format: int64 }
+        updated_at: { type: string, format: date-time }
+    Payout:
+      type: object
+      required: [event_id, reception_id, pvz_id, city, amount_kopecks, products, closed_at, processed_at]
+      properties:
+        event_id: { type: string, format: uuid }
+        reception_id: { type: string, format: uuid }
+        pvz_id: { type: string, format: uuid }
+        city: { type: string }
+        amount_kopecks: { type: integer, format: int64 }
+        products: { type: integer }
+        closed_at: { type: string, format: date-time }
+        processed_at: { type: string, format: date-time }

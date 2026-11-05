@@ -129,11 +129,12 @@ code {
 @media (min-width: 1080px) {
   .page {
     grid-template-columns: minmax(0, 1fr) var(--log-width);
-    grid-template-rows: auto auto 1fr;
+    grid-template-rows: auto auto auto 1fr;
     grid-template-areas:
       'hero hero'
       'role log'
-      'pvz log';
+      'pvz log'
+      'billing log';
     align-items: start;
     padding-top: 24px;
   }
@@ -157,7 +158,13 @@ code {
     max-height: calc(100vh - 32px);
     overflow: auto;
   }
+
+  .billing-card { grid-area: billing; }
 }
+
+.billing-list { padding-left: 20px; }
+.billing-list li { padding-block: 8px; overflow-wrap: anywhere; }
+.billing-list p { margin-block: 4px; }
 
 .card {
   display: flex;

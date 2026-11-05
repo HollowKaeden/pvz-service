@@ -4,7 +4,7 @@
 
 Учебный и портфолио-проект: в Авито решение не отправлялось.
 
-> **Статус:** все ручки из контракта работают, включая регистрацию и вход по email. Есть gRPC, метрики Prometheus и интеграционные тесты. При закрытии приёмки событие сохраняется в outbox и фоном отправляется в Kafka. Дальше — сервис начислений billing. Swagger UI открывается на `/docs/`.
+> **Статус:** все ручки из контракта работают, включая регистрацию и вход по email. Есть gRPC, Prometheus и интеграционные тесты. Закрытие приёмки запускает начисление в отдельном billing через outbox и Kafka. Панель показывает баланс, журнал и время доставки. Реализация billing проверена локально; проверка после деплоя — отдельно. В `/docs/` переключаются две спецификации.
 
 **Демо:** https://pvz.givemeanoffer.ru — страница, где весь сценарий приёмки проходится мышкой, а каждый запрос к API виден в журнале. Swagger UI: https://pvz.givemeanoffer.ru/docs/. gRPC на том же адресе, вызвать его можно через [grpcurl](https://github.com/fullstorydev/grpcurl):
 
@@ -20,12 +20,15 @@ grpcurl pvz.givemeanoffer.ru:443 pvz.v1.PVZService/GetPVZList
 
 ```bash
 cp .env.example .env          # локальные настройки
-make up                       # PostgreSQL, Kafka и Prometheus в Docker
-make run                      # сервис; миграции применяются при старте
-curl localhost:8080/health    # {"status":"ok"}
+make up                       # PostgreSQL, Kafka, Prometheus, Caddy в Docker
+make run                      # pvz; миграции применяются при старте
+# Во втором терминале:
+make run-billing              # своя БД, consumer, API :8081 и метрики :9001
+curl localhost:8000/health    # {"status":"ok"}
+curl localhost:8000/billing/health
 ```
 
-Страница с интерфейсом: http://localhost:8080/, Swagger UI: http://localhost:8080/docs/. Чтобы вызывать закрытые ручки, получите токен в `POST /dummyLogin` и вставьте его в окно **Authorize**.
+Единый вход через Caddy: http://localhost:8000/, Swagger UI: http://localhost:8000/docs/. Порты приложений остаются 8080 и 8081, но для панели начислений нужен общий origin на 8000. Чтобы вызывать закрытые ручки ПВЗ, получите токен в `POST /dummyLogin` и вставьте его в окно **Authorize**. Начисления доступны без входа. Если `.env` остался от старой версии, добавьте переменные `BILLING_*` из `.env.example` (и поправьте порт БД, если он отличается от 5432). `make up` создаёт отдельную локальную БД billing и на существующем volume.
 
 gRPC слушает порт 3000: `grpcurl -plaintext localhost:3000 pvz.v1.PVZService/GetPVZList`.
 
@@ -58,12 +61,19 @@ histogram_quantile(0.99, sum by (le) (rate(pvz_http_request_duration_seconds_buc
 | `AUTH_RATE_LIMIT` | пусто (без лимита) | сколько запросов к `/register` и `/login` пропускать с одного IP, например `10/1m` (10 в минуту) |
 | `KAFKA_BROKERS` | пусто | брокеры через запятую (`localhost:9092` локально, `kafka:19092` в проде); без переменной relay выключен, события остаются в outbox |
 | `KAFKA_TOPIC` | `pvz.reception.closed` | топик закрытых приёмок |
+| `BILLING_DATABASE_URL` | — | собственная БД `pvz_billing` со своим пользователем; единственная обязательная настройка billing |
+| `BILLING_DB_MAX_CONNS` | `3` | 3–10 соединений, одно держит блокировку процесса |
+| `BILLING_MIGRATE_ON_START` | `true` | миграции billing перед запуском |
+| `BILLING_HTTP_ADDR` / `BILLING_METRICS_ADDR` | `:8081` / `:9001` | API и отдельный порт метрик |
+| `BILLING_CONSUMER_GROUP` | `pvz-billing` | независимые offsets подписчика |
+
+Billing не требует `JWT_SECRET`. Для него `KAFKA_BROKERS` по умолчанию `localhost:9092`.
 
 ## Разработка
 
 ```bash
-make up         # поднять PostgreSQL, Kafka и Prometheus в Docker (make down — остановить)
-make migrate    # применить миграции без запуска сервиса
+make up         # поднять зависимости и Caddy (make down — остановить)
+make migrate    # применить миграции обеих БД без запуска сервисов
 make test       # unit-тесты с -race, без базы и Docker
 make test-int   # интеграционные тесты: PostgreSQL и Kafka в Docker
 make cover      # покрытие unit- и интеграционными тестами, падает ниже 75%
@@ -89,7 +99,7 @@ CI (`.github/workflows/ci.yml`) на каждый push в `main` и PR запу�
 ```text
 закрытие приёмки → PostgreSQL (статус + outbox одной транзакцией)
                                     ↓ relay
-                                  Kafka → billing (следующий шаг)
+                                  Kafka → billing → своя БД (журнал + балансы)
 ```
 
 - Событие содержит UUID, тип, версию, время, ПВЗ, город, даты открытия и закрытия и товары (`id`, `type`). JSON-контракт — `internal/eventschema`. Данных достаточно для подписчика без запросов обратно в pvz.
@@ -118,7 +128,62 @@ docker compose exec kafka /opt/kafka/bin/kafka-console-consumer.sh \
 
 В проде брокер доступен только внутри сети `db`, с heap 256 МиБ и лимитом контейнера 512 МиБ. После изменений проверяются `free -m` (available ≥ 500 МиБ), `docker stats --no-stream`, подкачка и отсутствие OOM. Если памяти мало, сначала уменьшить heap до 192 МиБ.
 
-Проверено на демо-сервере 4 ноября 2026: закрытие тестовой приёмки создало событие в outbox, из Kafka прочитан тот же UUID и состав товаров, очередь пуста. После проверки Kafka занимала ~346 МиБ, pvz ~7,5 МиБ; доступно 917 МиБ RAM, swap 76 из 2047 МиБ без активной подкачки. Оба контейнера healthy, без OOM и перезапусков. HTTP и gRPC через Caddy работают; метрики и порты Kafka снаружи не опубликованы. Этап outbox/Kafka завершён, billing пока не реализован.
+Проверено на демо-сервере 4 ноября 2026 (до добавления billing): закрытие тестовой приёмки создало событие в outbox, из Kafka прочитан тот же UUID и состав товаров, очередь пуста. После проверки Kafka занимала ~346 МиБ, pvz ~7,5 МиБ; доступно 917 МиБ RAM, swap 76 из 2047 МиБ без активной подкачки. Оба контейнера healthy, без OOM и перезапусков. HTTP и gRPC через Caddy работают; метрики и порты Kafka снаружи не опубликованы.
+
+## Начисления: отдельный подписчик
+
+Billing не читает таблицы pvz и не вызывает его API. Общий пакет только один — `internal/eventschema`. Собственная БД, миграции, конфигурация и метрики находятся в `internal/billing`. В одном Docker-образе два бинарника: `pvz` и `billing`; у контейнера billing свой entrypoint.
+
+За электронику начисляется 100 ₽, за одежду 50 ₽, за обувь 30 ₽. Ставки лежат в `rates`, процесс читает их при запуске. Все суммы — целые копейки (`bigint`), без округления денег через float. Смена ставок требует рестарта billing; старые суммы изменяются только при явном rebuild.
+
+Сумма считается по снимку товаров в памяти. На событие выполняются два SQL-запроса в одной транзакции: `INSERT payouts ON CONFLICT DO NOTHING`, затем UPSERT баланса. Уникальный `event_id` отбрасывает повтор, в том числе при конкурентной обработке. Offset Kafka коммитится **после** транзакции БД. Если между этими операциями процесс упадёт, повтор не начислит деньги второй раз. Так получается однократный эффект поверх доставки at-least-once.
+
+Consumer читает по одному сообщению с ручным коммитом и блокирует ребалансировку до завершения обработки ([документация franz-go](https://pkg.go.dev/github.com/twmb/franz-go/pkg/kgo#BlockRebalanceOnPoll)). Битый JSON, неизвестная версия или товар без ставки после трёх попыток отправляются в `<topic>.dlq`. В headers сохраняются ошибка, исходный топик, партиция, offset и время. Только после подтверждения DLQ коммитится исходное сообщение. Недоступная БД ждёт восстановления с паузой 250 мс → 5 с, без лимита попыток и без DLQ. В этой небольшой реализации ожидание задерживает весь consumer, а не только проблемную партицию. API продолжает работать при недоступной Kafka; health проверяет только собственную БД.
+
+Публичный API чтения описан в `api/billing.yaml` и генерируется отдельно от контракта Авито:
+
+- `GET /billing/payouts?page=1&limit=10` — балансы, порядок по UUID ПВЗ;
+- `GET /billing/payouts/{pvzId}?page=1&limit=30` — журнал, новые начисления сверху;
+- `GET /billing/rates` — ставки текущего процесса;
+- `GET /billing/health` — доступность БД.
+
+`page` от 1 до 10 000, `limit` от 1 до 30. До первого начисления журнал пуст. Здесь нет авторизации ради публичного демо; в настоящем сервисе права ограничивали бы владельцем ПВЗ. Фронт не пересылает токен pvz в billing. После закрытия приёмки он до 20 секунд опрашивает журнал и показывает `processed_at − closed_at`; при задержке можно обновить вручную. Запросы видны в общем журнале.
+
+Индекс `(pvz_id, processed_at DESC, event_id DESC)` проверен на PostgreSQL 16 с 10 000 записями: `Index Scan using payouts_pvz_processed_idx`, без отдельной сортировки, 4 shared buffers, 0,022 мс на прогретом кэше. Интеграционный тест повторяет EXPLAIN; время зависит от машины.
+
+### Пересчёт и ночной сброс
+
+`billing rebuild` очищает журнал и балансы и устанавливает offsets группы в начало **сохранившейся** истории. Это не восстановление всей истории: retention в демо — сутки. Сначала остановите billing (`Ctrl+C` в его терминале), затем:
+
+```bash
+make billing-rebuild
+make run-billing
+```
+
+После запуска consumer заново начислит события. При тех же ставках балансы совпадут. Работающий consumer исключён advisory-lock в БД и проверкой отсутствия участников Kafka-группы. Очистка проекции и намерение сменить offsets коммитятся вместе; если процесс упадёт до подтверждения Kafka, следующий старт завершит операцию по таблице `pending_reset`.
+
+`billing demo-reset` очищает проекцию и переводит offsets в **конец** топика: вчерашние события не начислятся снова. Ночной скрипт из `portfolio` останавливает pvz и billing, выполняет billing reset, затем pvz reset и возвращает процессы даже при ошибке. Во время сброса демо кратко недоступно. Эталон pvz создаётся через его сервисы, и новые начисления приходят обычным путём. Справочники не очищаются. Проект в бэкап не входит.
+
+### Метрики и DLQ
+
+На `:9001/metrics`: `billing_events_processed_total`, `billing_duplicates_total`, `billing_accrued_kopecks_total`, `billing_consumer_lag{partition}`, `billing_dlq_total` (отправки за время процесса), `billing_dlq_size` (сохранившиеся сообщения) и `billing_http_request_duration_seconds` с шаблоном маршрута. Лаг и размер DLQ обновляются раз в 15 с; Prometheus из локального compose собирает оба сервиса.
+
+Переотправка из DLQ ручная. Сначала выясните причину по headers и исправьте событие или ставку/код. Прочитайте **одну** нужную запись (пример: partition 0, offset 0), без headers в stdout:
+
+```bash
+docker compose exec -T kafka /opt/kafka/bin/kafka-console-consumer.sh \
+  --bootstrap-server kafka:19092 --topic pvz.reception.closed.dlq \
+  --partition 0 --offset 0 --max-messages 1 \
+  --property print.key=true --property 'key.separator=|' > dlq-record.txt
+# Проверьте/исправьте JSON в dlq-record.txt. Сохраните исходные id и ключ pvz_id.
+docker compose exec -T kafka /opt/kafka/bin/kafka-console-producer.sh \
+  --bootstrap-server kafka:19092 --topic pvz.reception.closed \
+  --property parse.key=true --property 'key.separator=|' < dlq-record.txt
+```
+
+Каждая строка должна оставаться `pvz_id|JSON` без переносов внутри JSON. Обработанное событие с тем же UUID будет пропущено. DLQ не очищается переотправкой: запись удалит retention. Не запускайте массовую переотправку без проверки причин.
+
+Локальные тесты с настоящими Postgres и Kafka проверяют: закрытие → outbox → начисление; конкурентный дубль и откат транзакции; rebuild с теми же балансами; битое сообщение → DLQ → следующее начисление; отключённая БД без DLQ; ночной сброс без повторного начисления вчерашних событий; восстановление незавершённого reset.
 
 ## Контракт
 

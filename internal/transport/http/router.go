@@ -47,6 +47,7 @@ func NewRouter(log *slog.Logger, deps Deps) http.Handler {
 	mux.Handle("GET /assets/", frontendAssets())
 	mux.HandleFunc("GET /docs/{$}", swaggerUI)
 	mux.HandleFunc("GET /docs/openapi.yaml", openAPISpec)
+	mux.HandleFunc("GET /docs/billing.yaml", billingSpec)
 
 	var limiter *rateLimiter
 	if deps.AuthLimit > 0 {

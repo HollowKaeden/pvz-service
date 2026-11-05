@@ -92,6 +92,16 @@ jobs:
       - name: Повторный запуск ничего не меняет
         run: go run ./cmd/pvz migrate
 
+      - name: Отдельная БД и миграции billing
+        env:
+          PGPASSWORD: pvz
+          BILLING_DATABASE_URL: postgres://pvz_billing:pvz_billing@localhost:5432/pvz_billing?sslmode=disable
+        run: |
+          psql -h localhost -U pvz -d postgres -v ON_ERROR_STOP=1 -c "CREATE ROLE pvz_billing LOGIN PASSWORD 'pvz_billing'"
+          psql -h localhost -U pvz -d postgres -v ON_ERROR_STOP=1 -c 'CREATE DATABASE pvz_billing OWNER pvz_billing'
+          go run ./cmd/billing migrate
+          go run ./cmd/billing migrate
+
   # Интеграционные тесты против настоящего Postgres (testcontainers поднимает
   # его сам, Docker на раннере есть) и покрытие unit- и интеграционными
   # тестами вместе: ниже 75% сборка падает.

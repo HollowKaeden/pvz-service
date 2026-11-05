@@ -16,3 +16,6 @@ packages:
   github.com/HollowKaeden/pvz-service/internal/events:
     config:
       all: true
+  github.com/HollowKaeden/pvz-service/internal/billing/service:
+    config:
+      all: true
