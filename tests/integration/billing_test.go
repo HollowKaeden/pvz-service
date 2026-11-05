@@ -17,6 +17,7 @@ import (
 	trmpgx "github.com/avito-tech/go-transaction-manager/drivers/pgxv5/v2"
 	"github.com/avito-tech/go-transaction-manager/trm/v2/manager"
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -32,13 +33,13 @@ import (
 	"github.com/HollowKaeden/pvz-service/internal/eventschema"
 )
 
-func billingPool(t *testing.T) *pgxpool.Pool {
+func billingPool(t *testing.T, database string) *pgxpool.Pool {
 	t.Helper()
-	_, err := pool.Exec(t.Context(), `CREATE DATABASE billing_test OWNER pvz`)
+	_, err := pool.Exec(t.Context(), `CREATE DATABASE `+pgx.Identifier{database}.Sanitize()+` OWNER pvz`)
 	require.NoError(t, err)
 	dbURL, err := url.Parse(pool.Config().ConnString())
 	require.NoError(t, err)
-	dbURL.Path = "/billing_test"
+	dbURL.Path = "/" + database
 	bpool, err := bp.NewPool(t.Context(), dbURL.String(), 10)
 	require.NoError(t, err)
 	t.Cleanup(bpool.Close)
@@ -51,7 +52,7 @@ func TestBilling(t *testing.T) {
 	resetDB(t)
 	ctx := t.Context()
 	log := slog.New(slog.DiscardHandler)
-	bpool := billingPool(t)
+	bpool := billingPool(t, "billing_test")
 	repo := bp.New(bpool)
 	tx, err := manager.New(trmpgx.NewDefaultFactory(bpool))
 	require.NoError(t, err)

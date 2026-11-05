@@ -51,19 +51,35 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool) error {
 }
 
 // Lock исключает одновременную работу consumer и reset/rebuild. Соединение
-// зарезервировано до остановки процесса, блокировка автоматически отпускается.
+// зарезервировано до остановки процесса. Штатное освобождение дожидается
+// подтверждения БД: одного закрытия клиентского сокета недостаточно.
 func Lock(ctx context.Context, pool *pgxpool.Pool) (func(), error) {
 	conn, err := pool.Acquire(ctx)
 	if err != nil {
 		return nil, err
 	}
-	var ok bool
-	if err = conn.QueryRow(ctx, `SELECT pg_try_advisory_lock(176540016)`).Scan(&ok); err != nil || !ok {
-		conn.Release()
-		if err != nil {
-			return nil, err
+	unlock := func() {
+		// При shutdown входящий ctx уже отменён; SQL очистки имеет свой
+		// короткий срок и должен дойти до подтверждения PostgreSQL.
+		releaseCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 2*time.Second)
+		defer cancel()
+		var released bool
+		if err := conn.QueryRow(releaseCtx, `SELECT pg_advisory_unlock(176540016)`).Scan(&released); err != nil || !released {
+			// При неопределённом результате нельзя отдавать живую сессию с
+			// возможным session-lock обратно в пул.
+			_ = conn.Conn().Close(releaseCtx)
 		}
+		conn.Release()
+	}
+	var ok bool
+	if err = conn.QueryRow(ctx, `SELECT pg_try_advisory_lock(176540016)`).Scan(&ok); err != nil {
+		// Сервер мог получить lock, даже если клиент не дождался ответа.
+		unlock()
+		return nil, err
+	}
+	if !ok {
+		conn.Release()
 		return nil, errors.New("billing уже работает: сначала остановите consumer")
 	}
-	return func() { _ = conn.Conn().Close(context.WithoutCancel(ctx)); conn.Release() }, nil
+	return unlock, nil
 }
