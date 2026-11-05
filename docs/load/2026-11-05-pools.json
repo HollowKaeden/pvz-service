@@ -1,0 +1,146 @@
+[
+  {
+    "started_at": "2026-11-05T10:28:36.127536476Z",
+    "base_url": "http://pvz:8080",
+    "billing_url": "http://billing:8081",
+    "label": "Linux controlled pool 5",
+    "go": "go1.27.3",
+    "os": "linux",
+    "arch": "amd64",
+    "logical_cpus": 16,
+    "target_rps": 1020,
+    "duration_seconds": 10,
+    "read_warmup_seconds": 3,
+    "workers": 100,
+    "passed": false,
+    "cases": [
+      {
+        "name": "list",
+        "total": 10146,
+        "ok": 10146,
+        "failed": 0,
+        "elapsed_ms": 10074.018,
+        "rps": 1007.1452434483097,
+        "max_stream_p99_ms": 16.02,
+        "passed": false,
+        "streams": [
+          {
+            "total": 10146,
+            "ok": 10146,
+            "failed": 0,
+            "elapsed_ms": 10008.95,
+            "rps": 1013.69,
+            "latency_ms": {
+              "min": 2.55,
+              "p50": 4.9,
+              "p95": 8.66,
+              "p99": 16.02,
+              "max": 25.72
+            },
+            "by_status": {
+              "200": 10146
+            },
+            "by_error": {}
+          }
+        ]
+      }
+    ],
+    "db_max_conns": 5
+  },
+  {
+    "started_at": "2026-11-05T10:28:55.166853575Z",
+    "base_url": "http://pvz:8080",
+    "billing_url": "http://billing:8081",
+    "label": "Linux controlled pool 10",
+    "go": "go1.27.3",
+    "os": "linux",
+    "arch": "amd64",
+    "logical_cpus": 16,
+    "target_rps": 1020,
+    "duration_seconds": 10,
+    "read_warmup_seconds": 3,
+    "workers": 100,
+    "passed": true,
+    "cases": [
+      {
+        "name": "list",
+        "total": 10155,
+        "ok": 10155,
+        "failed": 0,
+        "elapsed_ms": 10048.1,
+        "rps": 1010.6388238212477,
+        "max_stream_p99_ms": 11.66,
+        "passed": true,
+        "streams": [
+          {
+            "total": 10155,
+            "ok": 10155,
+            "failed": 0,
+            "elapsed_ms": 10004.04,
+            "rps": 1015.09,
+            "latency_ms": {
+              "min": 2.45,
+              "p50": 4.58,
+              "p95": 7.09,
+              "p99": 11.66,
+              "max": 32.9
+            },
+            "by_status": {
+              "200": 10155
+            },
+            "by_error": {}
+          }
+        ]
+      }
+    ],
+    "db_max_conns": 10
+  },
+  {
+    "started_at": "2026-11-05T10:29:14.707138812Z",
+    "base_url": "http://pvz:8080",
+    "billing_url": "http://billing:8081",
+    "label": "Linux controlled pool 20",
+    "go": "go1.27.3",
+    "os": "linux",
+    "arch": "amd64",
+    "logical_cpus": 16,
+    "target_rps": 1020,
+    "duration_seconds": 10,
+    "read_warmup_seconds": 3,
+    "workers": 100,
+    "passed": true,
+    "cases": [
+      {
+        "name": "list",
+        "total": 10151,
+        "ok": 10151,
+        "failed": 0,
+        "elapsed_ms": 10048.468,
+        "rps": 1010.2037441896007,
+        "max_stream_p99_ms": 11.68,
+        "passed": true,
+        "streams": [
+          {
+            "total": 10151,
+            "ok": 10151,
+            "failed": 0,
+            "elapsed_ms": 10002.87,
+            "rps": 1014.81,
+            "latency_ms": {
+              "min": 2.02,
+              "p50": 3.88,
+              "p95": 6.07,
+              "p99": 11.68,
+              "max": 29.32
+            },
+            "by_status": {
+              "200": 10151
+            },
+            "by_error": {}
+          }
+        ]
+      }
+    ],
+    "db_max_conns": 20
+  }
+]

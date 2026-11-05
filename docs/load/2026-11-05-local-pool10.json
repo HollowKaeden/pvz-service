@@ -1,0 +1,240 @@
+{
+  "started_at": "2026-11-05T10:32:19.161849357Z",
+  "base_url": "http://pvz:8080",
+  "billing_url": "http://billing:8081",
+  "label": "Linux-Docker-pool10-Ryzen3800X-16threads-31.9GiB",
+  "go": "go1.27.3",
+  "os": "linux",
+  "arch": "amd64",
+  "logical_cpus": 16,
+  "target_rps": 1020,
+  "duration_seconds": 30,
+  "read_warmup_seconds": 3,
+  "workers": 100,
+  "passed": false,
+  "cases": [
+    {
+      "name": "list",
+      "total": 30388,
+      "ok": 30388,
+      "failed": 0,
+      "elapsed_ms": 30054.716,
+      "rps": 1011.0892330594958,
+      "max_stream_p99_ms": 28.17,
+      "passed": true,
+      "streams": [
+        {
+          "total": 30388,
+          "ok": 30388,
+          "failed": 0,
+          "elapsed_ms": 30004.13,
+          "rps": 1012.79,
+          "latency_ms": {
+            "min": 2.32,
+            "p50": 4.58,
+            "p95": 9.32,
+            "p99": 28.17,
+            "max": 74.79
+          },
+          "by_status": {
+            "200": 30388
+          },
+          "by_error": {}
+        }
+      ]
+    },
+    {
+      "name": "products",
+      "total": 30289,
+      "ok": 30289,
+      "failed": 0,
+      "elapsed_ms": 30058.284,
+      "rps": 1007.6756158733123,
+      "max_stream_p99_ms": 126.25,
+      "passed": false,
+      "streams": [
+        {
+          "total": 3033,
+          "ok": 3033,
+          "failed": 0,
+          "elapsed_ms": 29999.5,
+          "rps": 101.1,
+          "latency_ms": {
+            "min": 2.11,
+            "p50": 4.34,
+            "p95": 78.11,
+            "p99": 125.26,
+            "max": 165.46
+          },
+          "by_status": {
+            "201": 3033
+          },
+          "by_error": {}
+        },
+        {
+          "total": 3032,
+          "ok": 3032,
+          "failed": 0,
+          "elapsed_ms": 29999.33,
+          "rps": 101.07,
+          "latency_ms": {
+            "min": 2.12,
+            "p50": 4.29,
+            "p95": 77.77,
+            "p99": 120.79,
+            "max": 144.49
+          },
+          "by_status": {
+            "201": 3032
+          },
+          "by_error": {}
+        },
+        {
+          "total": 3026,
+          "ok": 3026,
+          "failed": 0,
+          "elapsed_ms": 29998.19,
+          "rps": 100.87,
+          "latency_ms": {
+            "min": 2.32,
+            "p50": 4.26,
+            "p95": 78.49,
+            "p99": 124.25,
+            "max": 162.57
+          },
+          "by_status": {
+            "201": 3026
+          },
+          "by_error": {}
+        },
+        {
+          "total": 3032,
+          "ok": 3032,
+          "failed": 0,
+          "elapsed_ms": 29999.62,
+          "rps": 101.07,
+          "latency_ms": {
+            "min": 2.2,
+            "p50": 4.25,
+            "p95": 77.99,
+            "p99": 122.4,
+            "max": 154.7
+          },
+          "by_status": {
+            "201": 3032
+          },
+          "by_error": {}
+        },
+        {
+          "total": 3028,
+          "ok": 3028,
+          "failed": 0,
+          "elapsed_ms": 30001.36,
+          "rps": 100.93,
+          "latency_ms": {
+            "min": 2.02,
+            "p50": 4.1,
+            "p95": 79.03,
+            "p99": 124.31,
+            "max": 166.61
+          },
+          "by_status": {
+            "201": 3028
+          },
+          "by_error": {}
+        },
+        {
+          "total": 3031,
+          "ok": 3031,
+          "failed": 0,
+          "elapsed_ms": 30000.59,
+          "rps": 101.03,
+          "latency_ms": {
+            "min": 2,
+            "p50": 4.14,
+            "p95": 79.37,
+            "p99": 123,
+            "max": 171.87
+          },
+          "by_status": {
+            "201": 3031
+          },
+          "by_error": {}
+        },
+        {
+          "total": 3028,
+          "ok": 3028,
+          "failed": 0,
+          "elapsed_ms": 29999.53,
+          "rps": 100.93,
+          "latency_ms": {
+            "min": 2.18,
+            "p50": 4.21,
+            "p95": 78.22,
+            "p99": 124.19,
+            "max": 162.91
+          },
+          "by_status": {
+            "201": 3028
+          },
+          "by_error": {}
+        },
+        {
+          "total": 3025,
+          "ok": 3025,
+          "failed": 0,
+          "elapsed_ms": 29995.63,
+          "rps": 100.85,
+          "latency_ms": {
+            "min": 1.94,
+            "p50": 4.03,
+            "p95": 77.6,
+            "p99": 123.58,
+            "max": 149.17
+          },
+          "by_status": {
+            "201": 3025
+          },
+          "by_error": {}
+        },
+        {
+          "total": 3030,
+          "ok": 3030,
+          "failed": 0,
+          "elapsed_ms": 29999.54,
+          "rps": 101,
+          "latency_ms": {
+            "min": 2.27,
+            "p50": 4.28,
+            "p95": 76.88,
+            "p99": 120.62,
+            "max": 150.41
+          },
+          "by_status": {
+            "201": 3030
+          },
+          "by_error": {}
+        },
+        {
+          "total": 3024,
+          "ok": 3024,
+          "failed": 0,
+          "elapsed_ms": 29997.1,
+          "rps": 100.81,
+          "latency_ms": {
+            "min": 1.93,
+            "p50": 4.21,
+            "p95": 77.93,
+            "p99": 126.25,
+            "max": 162.88
+          },
+          "by_status": {
+            "201": 3024
+          },
+          "by_error": {}
+        }
+      ]
+    }
+  ],
+  "db_max_conns": 10
+}

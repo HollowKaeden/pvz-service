@@ -1,0 +1,47 @@
+# Необязательное локальное окружение для make load-up: Linux API и БД
+# в одной Docker-сети. Основной compose остаётся удобным для go run на хосте.
+# Образы берутся из CI; изменённый код можно собрать локально в PVZ_LOAD_IMAGE.
+services:
+  pvz:
+    image: ${PVZ_LOAD_IMAGE:-ghcr.io/hollowkaeden/pvz-service:latest}
+    environment:
+      DATABASE_URL: postgres://pvz:pvz@postgres:5432/pvz?sslmode=disable
+      JWT_SECRET: local-load-test-secret-0123456789abcdef
+      MIGRATE_ON_START: "true"
+      DB_MAX_CONNS: ${LOAD_DB_MAX_CONNS:-20}
+      KAFKA_BROKERS: kafka:19092
+      GOMEMLIMIT: 100MiB
+    ports:
+      - "127.0.0.1:8080:8080"
+      - "127.0.0.1:3000:3000"
+      - "127.0.0.1:9000:9000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "pvz", "healthcheck"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+    mem_limit: 128m
+
+  billing:
+    image: ${PVZ_LOAD_IMAGE:-ghcr.io/hollowkaeden/pvz-service:latest}
+    entrypoint: ["billing"]
+    command: ["serve"]
+    environment:
+      BILLING_DATABASE_URL: postgres://pvz_billing:pvz_billing@postgres:5432/pvz_billing?sslmode=disable
+      KAFKA_BROKERS: kafka:19092
+      GOMEMLIMIT: 48MiB
+    ports:
+      - "127.0.0.1:8081:8081"
+      - "127.0.0.1:9001:9001"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "billing", "healthcheck"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+    mem_limit: 64m

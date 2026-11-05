@@ -1,0 +1,257 @@
+{
+  "started_at": "2026-11-05T10:38:15.688947099Z",
+  "base_url": "http://pvz:8080",
+  "billing_url": "http://billing:8081",
+  "label": "Linux-Docker-pool20-final-Ryzen3800X-16threads-31.9GiB",
+  "go": "go1.27.3",
+  "os": "linux",
+  "arch": "amd64",
+  "logical_cpus": 16,
+  "target_rps": 1020,
+  "duration_seconds": 30,
+  "read_warmup_seconds": 3,
+  "workers": 100,
+  "passed": true,
+  "cases": [
+    {
+      "name": "list",
+      "total": 30421,
+      "ok": 30421,
+      "failed": 0,
+      "elapsed_ms": 30063.473,
+      "rps": 1011.8923819216146,
+      "max_stream_p99_ms": 12.3,
+      "passed": true,
+      "streams": [
+        {
+          "total": 30421,
+          "ok": 30421,
+          "failed": 0,
+          "elapsed_ms": 30003.58,
+          "rps": 1013.91,
+          "latency_ms": {
+            "min": 2.08,
+            "p50": 3.87,
+            "p95": 7.08,
+            "p99": 12.3,
+            "max": 50.85
+          },
+          "by_status": {
+            "200": 30421
+          },
+          "by_error": {}
+        }
+      ]
+    },
+    {
+      "name": "products",
+      "total": 30600,
+      "ok": 30600,
+      "failed": 0,
+      "elapsed_ms": 30061.659,
+      "rps": 1017.9078748082386,
+      "max_stream_p99_ms": 70.22,
+      "passed": true,
+      "streams": [
+        {
+          "total": 3060,
+          "ok": 3060,
+          "failed": 0,
+          "elapsed_ms": 29999.03,
+          "rps": 102,
+          "latency_ms": {
+            "min": 2.37,
+            "p50": 4.03,
+            "p95": 11.98,
+            "p99": 64.85,
+            "max": 87.96
+          },
+          "by_status": {
+            "201": 3060
+          },
+          "by_error": {}
+        },
+        {
+          "total": 3060,
+          "ok": 3060,
+          "failed": 0,
+          "elapsed_ms": 29999.01,
+          "rps": 102,
+          "latency_ms": {
+            "min": 2.51,
+            "p50": 4.03,
+            "p95": 12.06,
+            "p99": 68.94,
+            "max": 93.75
+          },
+          "by_status": {
+            "201": 3060
+          },
+          "by_error": {}
+        },
+        {
+          "total": 3060,
+          "ok": 3060,
+          "failed": 0,
+          "elapsed_ms": 29999.06,
+          "rps": 102,
+          "latency_ms": {
+            "min": 2.51,
+            "p50": 4.03,
+            "p95": 12.01,
+            "p99": 67.79,
+            "max": 91.53
+          },
+          "by_status": {
+            "201": 3060
+          },
+          "by_error": {}
+        },
+        {
+          "total": 3060,
+          "ok": 3060,
+          "failed": 0,
+          "elapsed_ms": 29999.11,
+          "rps": 102,
+          "latency_ms": {
+            "min": 2.46,
+            "p50": 4.05,
+            "p95": 12.16,
+            "p99": 65.49,
+            "max": 87.02
+          },
+          "by_status": {
+            "201": 3060
+          },
+          "by_error": {}
+        },
+        {
+          "total": 3060,
+          "ok": 3060,
+          "failed": 0,
+          "elapsed_ms": 30000.14,
+          "rps": 102,
+          "latency_ms": {
+            "min": 2.46,
+            "p50": 4.03,
+            "p95": 12.07,
+            "p99": 65.74,
+            "max": 87.4
+          },
+          "by_status": {
+            "201": 3060
+          },
+          "by_error": {}
+        },
+        {
+          "total": 3060,
+          "ok": 3060,
+          "failed": 0,
+          "elapsed_ms": 29997.1,
+          "rps": 102.01,
+          "latency_ms": {
+            "min": 2.43,
+            "p50": 4.06,
+            "p95": 12.28,
+            "p99": 68.22,
+            "max": 90.85
+          },
+          "by_status": {
+            "201": 3060
+          },
+          "by_error": {}
+        },
+        {
+          "total": 3060,
+          "ok": 3060,
+          "failed": 0,
+          "elapsed_ms": 29998.96,
+          "rps": 102,
+          "latency_ms": {
+            "min": 2.47,
+            "p50": 4.05,
+            "p95": 12.1,
+            "p99": 68.27,
+            "max": 87
+          },
+          "by_status": {
+            "201": 3060
+          },
+          "by_error": {}
+        },
+        {
+          "total": 3060,
+          "ok": 3060,
+          "failed": 0,
+          "elapsed_ms": 29999.25,
+          "rps": 102,
+          "latency_ms": {
+            "min": 2.46,
+            "p50": 3.98,
+            "p95": 12.13,
+            "p99": 62.27,
+            "max": 83.18
+          },
+          "by_status": {
+            "201": 3060
+          },
+          "by_error": {}
+        },
+        {
+          "total": 3060,
+          "ok": 3060,
+          "failed": 0,
+          "elapsed_ms": 29998.57,
+          "rps": 102,
+          "latency_ms": {
+            "min": 2.44,
+            "p50": 4.04,
+            "p95": 12.09,
+            "p99": 65.07,
+            "max": 87.1
+          },
+          "by_status": {
+            "201": 3060
+          },
+          "by_error": {}
+        },
+        {
+          "total": 3060,
+          "ok": 3060,
+          "failed": 0,
+          "elapsed_ms": 29999.06,
+          "rps": 102,
+          "latency_ms": {
+            "min": 2.46,
+            "p50": 4.07,
+            "p95": 12.15,
+            "p99": 70.22,
+            "max": 100.87
+          },
+          "by_status": {
+            "201": 3060
+          },
+          "by_error": {}
+        }
+      ]
+    }
+  ],
+  "server_revision": "b6669ef99aea07704a859304f93c8e43a9b77b14",
+  "loadgen_revision": "f8bded1748aac96429f176322c2d26ed0947ef24",
+  "machine": {
+    "cpu": "AMD Ryzen 7 3800X",
+    "cores": 8,
+    "logical_cpus": 16,
+    "host_ram_gib": 31.9,
+    "docker_cpus": 16,
+    "docker_ram_gib": 15.58,
+    "host_os": "Windows",
+    "api_os": "Linux",
+    "client_os": "Linux",
+    "postgres_major": 16,
+    "db_max_conns": 20,
+    "api_memory_limit_mib": 128,
+    "billing_memory_limit_mib": 64
+  },
+  "payout_validation": "All successful POST /products counts matched one payout per reception after close; not included in timed interval."
+}

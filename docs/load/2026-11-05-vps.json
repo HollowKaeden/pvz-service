@@ -1,0 +1,362 @@
+[
+  {
+    "started_at": "2026-11-05T10:17:07.732399297Z",
+    "base_url": "https://pvz.givemeanoffer.ru",
+    "billing_url": "https://pvz.givemeanoffer.ru",
+    "label": "Ubuntu 24.04, 1 vCPU, 1968 MiB RAM; Caddy HTTPS; pool5; shared projects, Kafka and generator on same VPS; other sites probed before/after measured phase",
+    "go": "go1.27.3",
+    "os": "linux",
+    "arch": "amd64",
+    "logical_cpus": 1,
+    "target_rps": 10,
+    "duration_seconds": 30,
+    "read_warmup_seconds": 3,
+    "workers": 100,
+    "passed": true,
+    "cases": [
+      {
+        "name": "list",
+        "total": 300,
+        "ok": 300,
+        "failed": 0,
+        "elapsed_ms": 29919.595,
+        "rps": 10.026873667842475,
+        "max_stream_p99_ms": 34.92,
+        "passed": true,
+        "streams": [
+          {
+            "total": 300,
+            "ok": 300,
+            "failed": 0,
+            "elapsed_ms": 29912.59,
+            "rps": 10.03,
+            "latency_ms": {
+              "min": 10.04,
+              "p50": 15.21,
+              "p95": 29.54,
+              "p99": 34.92,
+              "max": 71.73
+            },
+            "by_status": {
+              "200": 300
+            },
+            "by_error": {}
+          }
+        ]
+      }
+    ],
+    "health_before": {
+      "health_ms": [
+        14.479,
+        16.191,
+        65.961
+      ],
+      "available_mib": 945
+    },
+    "health_after": {
+      "health_ms": [
+        14.341,
+        16.229,
+        54.016
+      ],
+      "available_mib": 935
+    },
+    "observations": [
+      {
+        "available_mib": 948
+      },
+      {
+        "available_mib": 924,
+        "cpu_busy_percent": 24.8
+      },
+      {
+        "available_mib": 898,
+        "cpu_busy_percent": 63.8
+      },
+      {
+        "available_mib": 873,
+        "cpu_busy_percent": 100.0
+      },
+      {
+        "available_mib": 903,
+        "cpu_busy_percent": 78.2
+      },
+      {
+        "available_mib": 925,
+        "cpu_busy_percent": 20.9
+      },
+      {
+        "available_mib": 922,
+        "cpu_busy_percent": 20.9
+      },
+      {
+        "available_mib": 921,
+        "cpu_busy_percent": 44.3
+      },
+      {
+        "available_mib": 928,
+        "cpu_busy_percent": 24.7
+      },
+      {
+        "available_mib": 926,
+        "cpu_busy_percent": 21.1
+      },
+      {
+        "available_mib": 927,
+        "cpu_busy_percent": 33.1
+      }
+    ],
+    "server_revision": "b6669ef99aea07704a859304f93c8e43a9b77b14",
+    "loadgen_revision": "f8bded1748aac96429f176322c2d26ed0947ef24",
+    "machine": {
+      "cpu": "Common KVM processor",
+      "logical_cpus": 1,
+      "ram_mib": 1968,
+      "os": "Ubuntu 24.04",
+      "db_max_conns": 5,
+      "api_memory_limit_mib": 128,
+      "billing_memory_limit_mib": 64
+    },
+    "cpu_sampling_note": "First instantaneous CPU value omitted; subsequent values cover approximately 3 seconds."
+  },
+  {
+    "started_at": "2026-11-05T10:17:41.125778223Z",
+    "base_url": "https://pvz.givemeanoffer.ru",
+    "billing_url": "https://pvz.givemeanoffer.ru",
+    "label": "Ubuntu 24.04, 1 vCPU, 1968 MiB RAM; Caddy HTTPS; pool5; shared projects, Kafka and generator on same VPS; other sites probed before/after measured phase",
+    "go": "go1.27.3",
+    "os": "linux",
+    "arch": "amd64",
+    "logical_cpus": 1,
+    "target_rps": 20,
+    "duration_seconds": 30,
+    "read_warmup_seconds": 3,
+    "workers": 100,
+    "passed": true,
+    "cases": [
+      {
+        "name": "list",
+        "total": 600,
+        "ok": 600,
+        "failed": 0,
+        "elapsed_ms": 29973.945,
+        "rps": 20.017385085601923,
+        "max_stream_p99_ms": 55.94,
+        "passed": true,
+        "streams": [
+          {
+            "total": 600,
+            "ok": 600,
+            "failed": 0,
+            "elapsed_ms": 29966.77,
+            "rps": 20.02,
+            "latency_ms": {
+              "min": 7.32,
+              "p50": 16.64,
+              "p95": 35.07,
+              "p99": 55.94,
+              "max": 164.17
+            },
+            "by_status": {
+              "200": 600
+            },
+            "by_error": {}
+          }
+        ]
+      }
+    ],
+    "health_before": {
+      "health_ms": [
+        11.767,
+        13.663,
+        51.253
+      ],
+      "available_mib": 940
+    },
+    "health_after": {
+      "health_ms": [
+        11.411,
+        13.477,
+        52.226
+      ],
+      "available_mib": 934
+    },
+    "observations": [
+      {
+        "available_mib": 941
+      },
+      {
+        "available_mib": 921,
+        "cpu_busy_percent": 45.5
+      },
+      {
+        "available_mib": 927,
+        "cpu_busy_percent": 41.8
+      },
+      {
+        "available_mib": 910,
+        "cpu_busy_percent": 70.1
+      },
+      {
+        "available_mib": 870,
+        "cpu_busy_percent": 100.0
+      },
+      {
+        "available_mib": 850,
+        "cpu_busy_percent": 100.0
+      },
+      {
+        "available_mib": 895,
+        "cpu_busy_percent": 83.0
+      },
+      {
+        "available_mib": 927,
+        "cpu_busy_percent": 50.7
+      },
+      {
+        "available_mib": 925,
+        "cpu_busy_percent": 40.5
+      },
+      {
+        "available_mib": 925,
+        "cpu_busy_percent": 27.2
+      },
+      {
+        "available_mib": 919,
+        "cpu_busy_percent": 52.2
+      }
+    ],
+    "server_revision": "b6669ef99aea07704a859304f93c8e43a9b77b14",
+    "loadgen_revision": "f8bded1748aac96429f176322c2d26ed0947ef24",
+    "machine": {
+      "cpu": "Common KVM processor",
+      "logical_cpus": 1,
+      "ram_mib": 1968,
+      "os": "Ubuntu 24.04",
+      "db_max_conns": 5,
+      "api_memory_limit_mib": 128,
+      "billing_memory_limit_mib": 64
+    },
+    "cpu_sampling_note": "First instantaneous CPU value omitted; subsequent values cover approximately 3 seconds."
+  },
+  {
+    "started_at": "2026-11-05T10:18:14.544341485Z",
+    "base_url": "https://pvz.givemeanoffer.ru",
+    "billing_url": "https://pvz.givemeanoffer.ru",
+    "label": "Ubuntu 24.04, 1 vCPU, 1968 MiB RAM; Caddy HTTPS; pool5; shared projects, Kafka and generator on same VPS; other sites probed before/after measured phase",
+    "go": "go1.27.3",
+    "os": "linux",
+    "arch": "amd64",
+    "logical_cpus": 1,
+    "target_rps": 40,
+    "duration_seconds": 30,
+    "read_warmup_seconds": 3,
+    "workers": 100,
+    "passed": false,
+    "cases": [
+      {
+        "name": "list",
+        "total": 1200,
+        "ok": 1200,
+        "failed": 0,
+        "elapsed_ms": 29994.803,
+        "rps": 40.006930161803915,
+        "max_stream_p99_ms": 185.06,
+        "passed": false,
+        "streams": [
+          {
+            "total": 1200,
+            "ok": 1200,
+            "failed": 0,
+            "elapsed_ms": 29987.77,
+            "rps": 40.02,
+            "latency_ms": {
+              "min": 8.56,
+              "p50": 16.25,
+              "p95": 68.85,
+              "p99": 185.06,
+              "max": 466.75
+            },
+            "by_status": {
+              "200": 1200
+            },
+            "by_error": {}
+          }
+        ]
+      }
+    ],
+    "health_before": {
+      "health_ms": [
+        10.213,
+        11.578,
+        45.792
+      ],
+      "available_mib": 939
+    },
+    "health_after": {
+      "health_ms": [
+        11.519,
+        14.577,
+        79.791
+      ],
+      "available_mib": 913
+    },
+    "observations": [
+      {
+        "available_mib": 941
+      },
+      {
+        "available_mib": 925,
+        "cpu_busy_percent": 70.9
+      },
+      {
+        "available_mib": 923,
+        "cpu_busy_percent": 62.8
+      },
+      {
+        "available_mib": 924,
+        "cpu_busy_percent": 78.6
+      },
+      {
+        "available_mib": 924,
+        "cpu_busy_percent": 54.7
+      },
+      {
+        "available_mib": 893,
+        "cpu_busy_percent": 89.1
+      },
+      {
+        "available_mib": 858,
+        "cpu_busy_percent": 100.0
+      },
+      {
+        "available_mib": 859,
+        "cpu_busy_percent": 100.0
+      },
+      {
+        "available_mib": 876,
+        "cpu_busy_percent": 92.4
+      },
+      {
+        "available_mib": 876,
+        "cpu_busy_percent": 53.7
+      },
+      {
+        "available_mib": 875,
+        "cpu_busy_percent": 63.0
+      }
+    ],
+    "server_revision": "b6669ef99aea07704a859304f93c8e43a9b77b14",
+    "loadgen_revision": "f8bded1748aac96429f176322c2d26ed0947ef24",
+    "machine": {
+      "cpu": "Common KVM processor",
+      "logical_cpus": 1,
+      "ram_mib": 1968,
+      "os": "Ubuntu 24.04",
+      "db_max_conns": 5,
+      "api_memory_limit_mib": 128,
+      "billing_memory_limit_mib": 64
+    },
+    "cpu_sampling_note": "First instantaneous CPU value omitted; subsequent values cover approximately 3 seconds."
+  }
+]
