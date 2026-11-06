@@ -1,0 +1,9 @@
+# make load-up: приложения в одной Docker-сети с Caddy.
+:8000 {
+	handle /billing/* {
+		reverse_proxy billing:8081
+	}
+	handle {
+		reverse_proxy pvz:8080
+	}
+}

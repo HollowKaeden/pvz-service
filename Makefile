@@ -87,10 +87,11 @@ load: ## нагрузка своим http-loadgen: 1000 RPS, JSON в tmp/load (�
 	go run ./cmd/pvz-load -loadgen-bin "$(abspath bin/loadgen$(LOADGEN_EXE))" -url "$(LOAD_URL)" -billing-url "$(LOAD_BILLING_URL)" $(LOAD_ARGS)
 
 load-up: up ## добавить Linux pvz+billing из CI-образа к локальным зависимостям
-	docker compose -f compose.yaml -f compose.load.yaml up -d --wait pvz billing
+	docker compose -f compose.yaml -f compose.load.yaml up -d --wait pvz billing caddy prometheus
 
 load-down: ## остановить только pvz+billing нагрузочного окружения (данные остаются)
 	docker compose -f compose.yaml -f compose.load.yaml stop pvz billing
+	docker compose up -d --wait caddy prometheus
 
 load-linux: ## тот же тест Linux-клиентом внутри Docker (рекомендуется на Windows)
 	mkdir -p tmp/load-linux

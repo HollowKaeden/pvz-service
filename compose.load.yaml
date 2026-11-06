@@ -2,6 +2,14 @@
 # в одной Docker-сети. Основной compose остаётся удобным для go run на хосте.
 # Образы берутся из CI; изменённый код можно собрать локально в PVZ_LOAD_IMAGE.
 services:
+  caddy:
+    volumes:
+      - ./dev/Caddy.loadfile:/etc/caddy/Caddyfile:ro
+
+  prometheus:
+    volumes:
+      - ./dev/prometheus.load.yml:/etc/prometheus/prometheus.yml:ro
+
   pvz:
     image: ${PVZ_LOAD_IMAGE:-ghcr.io/hollowkaeden/pvz-service:latest}
     environment:
